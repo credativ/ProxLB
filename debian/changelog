@@ -1,0 +1,127 @@
+proxlb (1.1.11) stable; urgency=medium
+
+  * Add support for native Proxmox HA/Affinity rules. (Closes: #391)
+  * Add safety guard to avoid node overprovisioning. (Closes: #275)
+  * Fix affinity rules pre-validation (avoid rebalancing if already ensured). (Closes: #335)
+  * Add resource reservation support for PVE nodes. (Closes: #373)
+  * Change/Adjust balancing and sorting behaviour. (Closes: #378)
+  * Add control over balancing workloads by prefering smaller/larger guest objects. (Closes: #387)
+  * Fix pinning of guest and node relations when using pool based pinning. (Closes: #395)
+  * Add validation of HA jobs by fetching the related child jobs. (Closes: #402)
+  * Add support for configuring node-pinning strictness (mode: strict/prefer). (Closes: #406)
+  * Fix that tag based ignored guests got still moved. (Closes: #408)
+  * Add parameter to enforce guest node relationships when pinned even when the cluster is balanced. (Closes: #414)
+
+ -- Florian Paul Azim Hoberg <gyptazy@gyptazy.com>  Mon, 12 Jan 2026 11:11:04 +0001
+
+proxlb (1.1.10) stable; urgency=medium
+
+  * Prevent redundant rebalancing by validating existing affinity enforcement before taking actions. (Closes: #335)
+  * Add safety-guard for PVE 8 users when activating conntrack-aware migrations mistakenly. (Closes: #359)
+  * Fix the Proxmox API connection validation which returned a false-positive logging message of timeouts. (Closes: #361)
+  * Refactored the whole Proxmox API connection function. (Closes: #361)
+  * Fix a crash during PVE resource pool enumeration by skipping members not having a 'name' property. (Closes: #368)
+
+ -- Florian Paul Azim Hoberg <gyptazy@gyptazy.com>  Tue, 25 Nov 2025 09:12:04 +0001
+
+proxlb (1.1.9.1) stable; urgency=medium
+
+  * Fix quoting in f-strings which may cause issues on PVE 8 / Debian Bookworm systems. (Closes: #352)
+
+ -- Florian Paul Azim Hoberg <gyptazy@gyptazy.com>  Thu, 30 Oct 2025 17:41:02 +0001
+
+proxlb (1.1.9) stable; urgency=medium
+
+  * Add pressure (PSI) based balancing for memory, cpu, disk (req. PVE9 or greater). (Closes: #339)
+  * Add (memory) threshold for nodes before running balancing. (Closes: #342)
+  * Add affinity/anti-affinity support by pools. (Closes: #343)
+
+ -- Florian Paul Azim Hoberg <gyptazy@gyptazy.com>  Thu, 30 Oct 2025 06:58:43 +0001
+
+proxlb (1.1.8) stable; urgency=medium
+
+  * Fix API errors when using conntrack aware migration with older PVE version. (Closes: #318)
+  * Add a static ProxLB prefix to the log output when used by journal handler. (Closes: #329)
+
+ -- Florian Paul Azim Hoberg <gyptazy@gyptazy.com>  Thu, 09 Oct 2025 09:04:13 +0002
+
+proxlb (1.1.7) stable; urgency=medium
+
+  * Add conntrack state aware migrations of VMs. (Closes: #305)
+  * Add graceful shutdown for SIGINT command. (Closes: #304)
+  * Fix crash when validating absent migration job ids. (Closes: #308)
+  * Fix guest object names are not being evaluated in debug log. (Closes: #310)
+  * Note: Have a great Dutch Proxmox Day 2025!
+
+ -- Florian Paul Azim Hoberg <gyptazy@gyptazy.com>  Thu, 04 Sep 2025 19:23:51 +0000
+
+proxlb (1.1.6.1) stable; urgency=medium
+
+  * Validate for node presence when pinning VMs to avoid crashing. (Closes: #296)
+
+ -- Florian Paul Azim Hoberg <gyptazy@gyptazy.com>  Thu, 04 Sep 2025 19:23:51 +0000
+
+proxlb (1.1.6) stable; urgency=medium
+
+  * Add validation for provided API user token id to avoid confusions. (Closes: #291)
+  * Fix stacktrace output when validating permissions on non existing users in Proxmox. (Closes: #291)
+  * Fix Overprovisioning first node if anti_affinity_group has only one member. (Closes: #295)
+  * Validate for node presence when pinning guests to avoid crashing. (Closes: #296)
+  * Fix balancing evaluation of guest types (e.g., VM or CT). (Closes: #268)
+
+ -- Florian Paul Azim Hoberg <gyptazy@gyptazy.com>  Thu, 04 Sep 2025 05:12:19 +0000
+
+proxlb (1.1.5) stable; urgency=medium
+
+  * Allow custom API ports instead of fixed tcp/8006. (Closes: #260)
+
+ -- Florian Paul Azim Hoberg <gyptazy@gyptazy.com>  Mon, 14 Jul 2025 11:07:34 +0000
+
+proxlb (1.1.4) stable; urgency=medium
+
+  * Allow pinning of guests to a group of nodes. (Closes: #245)
+  * Modified log levels to make output lighter at INFO level. (Closes: #255)
+  * ixed an issue where balancing was performed in combination of deactivated balancing and dry-run mode. (Closes: #248)
+
+ -- Florian Paul Azim Hoberg <gyptazy@gyptazy.com>  Fri, 27 Jun 2025 16:22:58 +0000
+
+proxlb (1.1.3) stable; urgency=medium
+
+  * Add relaod (SIGHUP) function to ProxLB to reload the configuration. (Closes: #189)
+  * Add optional wait time parameter to delay execution until the service takes action. (Closes: #239)
+  * Make the amount of parallel migrations configurable. (Closes: #241)
+  * Use the average CPU consumption of a guest within the last 60 minutes instead of the current CPU usage. (Closes: #94)
+  * Align maintenance mode with Proxmox HA maintenance mode. (Closes: #232)
+
+ -- Florian Paul Azim Hoberg <gyptazy@gyptazy.com>  Thu, 19 Jun 2025 09:10:43 +0000
+
+proxlb (1.1.2) stable; urgency=medium
+
+  * Add a configurable retry mechanism when connecting to the Proxmox API. (Closed: #157)
+  * Add 1-to-1 relationships between guest and hypervisor node to ping a guest on a node. (Closes #218)
+  * Force type cast cpu count of guests to int for some corner cases where a str got returned. (Closed #222)
+  * Fix systemd unit file to run after network on non PVE nodes. (Closes #137)
+
+ -- Florian Paul Azim Hoberg <gyptazy@gyptazy.com>  Mon, 13 May 2025 18:12:04 +0000
+
+proxlb (1.1.1) stable; urgency=medium
+
+  * Fix tag evluation for VMs for being ignored for further balancing. (Closes: #163)
+  * Improve logging verbosity of messages that had a wrong servity. (Closes: #165)
+  * Providing the API upstream error message when migration fails in debug mode (Closes: #205)
+  * Change the default behaviour of the daemon mode to active. (Closes: #176)
+  * Change the default banalcing mode to used instead of assigned. (Closes: #180)
+  * Set cpu_used to the cpu usage, which is a percent, times the total number of cores to get a number where guest cpu_used can be added to nodes cpu_used and be meaningful. (Closes: #195)
+  * Honor the value when balancing should not be performed and stop balancing. (Closes: #174)
+  * Allow the use of minutes instead of hours and only accept hours or minutes in the format. (Closes: #187)
+  * Remove hard coded memory usage from lowest usage node and use method and mode specified in configuration instead. (Closes: #197)
+  * Fix the guest type relationship in the logs when a migration job failed. (Closes: #204)
+  * Requery a guest if that running guest reports 0 cpu usage. (Closes: #200)
+
+ -- Florian Paul Azim Hoberg <gyptazy@gyptazy.com>  Sat, 20 Apr 2025 20:55:02 +0000
+
+proxlb (1.1.0) stable; urgency=medium
+
+  * Refactored code base of ProxLB. (Closes: #114)
+
+ -- Florian Paul Azim Hoberg <gyptazy@gyptazy.com>  Mon, 17 Mar 2025 18:55:02 +0000
