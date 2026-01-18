@@ -15,9 +15,8 @@
    4. [Container / Docker](#container--docker)
    5. [Source](#source)
 6. [Usage / Configuration](#usage--configuration)
-   1. [GUI Integration](#gui-integration)
-   2. [Proxmox HA Integration](#proxmox-ha-integration)
-   3. [Options](#options)
+   1. [Proxmox HA Integration](#proxmox-ha-integration)
+   2. [Options](#options)
 7. [Affinity & Anti-Affinity Rules](#affinity--anti-affinity-rules)
    1. [Affinity Rules](#affinity-rules)
    2. [Anti-Affinity Rules](#anti-affinity-rules)
@@ -28,12 +27,13 @@
    1. [Bugs](#bugs)
    2. [Contributing](#contributing)
    3. [Support](#support)
-   4. [Enterprise-Support](#enterprise-support)
-10. [Author(s)](#authors)
+10. [Enterprise-Support](#enterprise-support)
+11. [Prox-Tools Collection](#prox-tools-collection)
+12. [Author(s)](#authors)
 
 
 ## Introduction
-ProxLB is an advanced load balancing solution specifically designed for Proxmox clusters, addressing the absence of an intelligent and more advanced resource scheduler. As a third-party solution, ProxLB enhances the management and efficiency of Proxmox clusters by intelligently distributing workloads across available nodes. Workloads can be balanced by different times like the guest's memory, CPU or disk usage or their assignment to avoid overprovisioning and ensuring resources.
+ProxLB is an advanced load balancing solution (initially written by [@gyptazy](https://gyptazy.com/proxlb/)) specifically designed for Proxmox clusters, addressing the absence of an intelligent and more advanced resource scheduler. As a third-party solution, ProxLB enhances the management and efficiency of Proxmox clusters by intelligently distributing workloads across available nodes. Workloads can be balanced by different times like the guest's memory, CPU or disk usage or their assignment to avoid overprovisioning and ensuring resources.
 
 One of the key advantages of ProxLB is that it is fully open-source and free, making it accessible for anyone to use, modify, and contribute to. This ensures transparency and fosters community-driven improvements. ProxLB supports filtering and ignoring specific nodes and guests through configuration files and API calls, providing administrators with the flexibility to tailor the load balancing behavior to their specific needs.
 
@@ -80,9 +80,13 @@ ProxLB is a load-balancing system designed to optimize the distribution of virtu
 Before starting any migrations, ProxLB validates that rebalancing actions are necessary and beneficial. Depending on the selected balancing mode — such as CPU, memory, or disk — it creates a balancing matrix. This matrix sorts the VMs by their maximum used or assigned resources, identifying the VM with the highest usage. ProxLB then places this VM on the node with the most free resources in the selected balancing type. This process runs recursively until the operator-defined Balanciness is achieved. Balancing can be defined for the used or max. assigned resources of VMs/CTs.
 
 ## Documentation
-This `README.md` doesn't contain all information and only highlights the most important facts. Extended information, such like API permissions, creating dedicated user, best-practices in running ProxLB and much more can be found in the [docs/](https://github.com/credativ/ProxLB/tree/main/docs) directory. Please consult the documentation before creating issues.
+This `README.md` doesn't contain all information and only highlights the most important facts. Extended information, such like API permissions, creating dedicated user, best-practices in running ProxLB and much more can be found in the [docs/](https://github.com/gyptazy/ProxLB/tree/main/docs) directory. Please consult the documentation before creating issues.
 
 ## Installation
+ProxLB can be installed as a Debian package or by a container image. With the provided Helm charts it can also easily be deployed into Kubernetes stacks.
+
+*Note: The Debian repository and container image registry are currently operated by @gyptazy and will be migrated to a new location in the future.*
+
 
 ### Requirements / Dependencies
 * Proxmox
@@ -105,8 +109,42 @@ pip install -r requirements.txt
 ### Debian Package
 ProxLB is a powerful and flexible load balancer designed to work across various architectures, including `amd64`, `arm64`, `rv64` and many other ones that support Python. It runs independently of the underlying hardware, making it a versatile choice for different environments. This chapter covers the step-by-step process to install ProxLB on Debian-based systems, including Debian clones like Ubuntu.
 
-#### Debian Repository
-Unfortunately, this is currently still in progress after moving the repository to the new location.
+#### Quick-Start
+You can simply use this snippet to install the repository and to install ProxLB on your system.
+
+```bash
+echo "deb https://repo.gyptazy.com/stable /" > /etc/apt/sources.list.d/proxlb.list
+wget -O /etc/apt/trusted.gpg.d/proxlb.asc https://repo.gyptazy.com/repository.gpg
+apt-get update && apt-get -y install proxlb
+cp /etc/proxlb/proxlb_example.yaml /etc/proxlb/proxlb.yaml
+# Adjust the config to your needs
+vi /etc/proxlb/proxlb.yaml
+systemctl start proxlb
+```
+
+Afterwards, ProxLB is running in the background and balances your cluster by your defined balancing method (default: memory).
+
+**Note**: If you want to use ProxLB with the proxmox-offline-mirror or any other APT mirror tool that does not support the flat repository architecture, please see the [docs](https://github.com/gyptazy/ProxLB/blob/main/docs/02_installation.md#Repo-Mirror-and-Proxmox-Offline-Mirror-Support) how you can add this by using ProxLB's fully repo.
+
+#### Details
+ProxLB provides two different repositories:
+* https://repo.gyptazy.com/stable (only stable release)
+* https://repo.gyptazy.com/testing (bleeding edge - not recommended)
+
+The repository is signed and the GPG key can be found at:
+* https://repo.gyptazy.com/repository.gpg
+
+You can also simply import it by running:
+
+```
+# KeyID:  17169F23F9F71A14AD49EDADDB51D3EB01824F4C
+# UID:    gyptazy Solutions Repository <contact@gyptazy.com>
+# SHA256: 52c267e6f4ec799d40cdbdb29fa518533ac7942dab557fa4c217a76f90d6b0f3  repository.gpg
+
+wget -O /etc/apt/trusted.gpg.d/proxlb.asc https://repo.gyptazy.com/repository.gpg
+```
+
+*Note: The defined repositories `repo.gyptazy.com` and `repo.proxlb.de` are the same!*
 
 #### Debian Packages (.deb files)
 If you do not want to use the repository you can also find the debian packages as a .deb file on gyptazy's CDN at:
@@ -122,7 +160,58 @@ systemctl start proxlb
 ```
 
 ### Container Images / Docker
-Unfortunately, this is currently still in progress after moving the repository to the new location. --rm -v $(pwd)/proxlb.yaml:/etc/proxlb/proxlb.yaml proxlb
+Using the ProxLB container images is straight forward and only requires you to mount the config file.
+
+```bash
+# Pull the image
+docker pull cr.gyptazy.com/proxlb/proxlb:latest
+# Download the config
+wget -O proxlb.yaml https://raw.githubusercontent.com/gyptazy/ProxLB/refs/heads/main/config/proxlb_example.yaml
+# Adjust the config to your needs
+vi proxlb.yaml
+# Start the ProxLB container image with the ProxLB config
+docker run -it --rm -v $(pwd)/proxlb.yaml:/etc/proxlb/proxlb.yaml proxlb
+```
+
+### Docker Compose
+
+```bash
+services:
+  proxlb:
+    image: cr.gyptazy.com/proxlb/proxlb:latest
+    container_name: proxlb
+    restart: unless-stopped
+    volumes:
+      - ./proxlb.yaml:/etc/proxlb/proxlb.yaml:ro
+```
+
+*Note: ProxLB container images are officially only available at cr.proxlb.de and cr.gyptazy.com.*
+
+#### Overview of Images
+| Version | Image |
+|------|:------:|
+| latest | cr.gyptazy.com/proxlb/proxlb:latest |
+| v1.1.11 | cr.gyptazy.com/proxlb/proxlb:v1.1.11 |
+| v1.1.10 | cr.gyptazy.com/proxlb/proxlb:v1.1.10 |
+| v1.1.9.1 | cr.gyptazy.com/proxlb/proxlb:v1.1.9.1 |
+| v1.1.9 | cr.gyptazy.com/proxlb/proxlb:v1.1.9 |
+| v1.1.8 | cr.gyptazy.com/proxlb/proxlb:v1.1.8 |
+| v1.1.7 | cr.gyptazy.com/proxlb/proxlb:v1.1.7 |
+| v1.1.6.1 | cr.gyptazy.com/proxlb/proxlb:v1.1.6.1 |
+| v1.1.6 | cr.gyptazy.com/proxlb/proxlb:v1.1.6 |
+| v1.1.5 | cr.gyptazy.com/proxlb/proxlb:v1.1.5 |
+| v1.1.4 | cr.gyptazy.com/proxlb/proxlb:v1.1.4 |
+| v1.1.3 | cr.gyptazy.com/proxlb/proxlb:v1.1.3 |
+| v1.1.2 | cr.gyptazy.com/proxlb/proxlb:v1.1.2 |
+| v1.1.1 | cr.gyptazy.com/proxlb/proxlb:v1.1.1 |
+| v1.1.0 | cr.gyptazy.com/proxlb/proxlb:v1.1.0 |
+| v1.0.6 | cr.gyptazy.com/proxlb/proxlb:v1.0.6 |
+| v1.0.5 | cr.gyptazy.com/proxlb/proxlb:v1.0.5 |
+| v1.0.4 | cr.gyptazy.com/proxlb/proxlb:v1.0.4 |
+| v1.0.3 | cr.gyptazy.com/proxlb/proxlb:v1.0.3 |
+| v1.0.2 | cr.gyptazy.com/proxlb/proxlb:v1.0.2 |
+| v1.0.0 | cr.gyptazy.com/proxlb/proxlb:v1.0.0 |
+| v0.9.9 | cr.gyptazy.com/proxlb/proxlb:v0.9.9 |
 
 ### Source
 ProxLB can also easily be used from the provided sources - for traditional systems but also as a Docker/Podman container image.
@@ -174,6 +263,8 @@ However, when used in conjunction with ProxLB, the built-in load balancer for Pr
 Due to these conflicts, it is currently not recommended to use both HA groups and ProxLB simultaneously. The interaction between the two mechanisms can lead to unexpected behavior, where VMs might not adhere to HA group rules after being moved by ProxLB.
 
 A solution to improve compatibility between HA groups and ProxLB is under evaluation, aiming to ensure that both features can work together without disrupting VM placement strategies.
+
+See also: [#65: Host groups: Honour HA groups](https://github.com/gyptazy/ProxLB/issues/65).
 
 ### Options
 The following options can be set in the configuration file `proxlb.yaml`:
@@ -445,23 +536,38 @@ Afterwards, all guest objects will be moved to other nodes in the cluster by ens
 
 ## Misc
 ### Bugs
-Bugs can be reported via the GitHub issue tracker [here](https://github.com/credativ/ProxLB/issues). You may also report bugs via email or deliver PRs to fix them on your own. Therefore, you might also see the contributing chapter.
+Bugs can be reported via the GitHub issue tracker [here](https://github.com/gyptazy/ProxLB/issues). You may also report bugs via email or deliver PRs to fix them on your own. Therefore, you might also see the contributing chapter.
 
 ### Contributing
-Feel free to add further documentation, to adjust already existing one or to contribute with code. Please take care about the style guide and naming conventions. You can find more in our [CONTRIBUTING.md](https://github.com/credativ/ProxLB/blob/main/CONTRIBUTING.md) file.
+Feel free to add further documentation, to adjust already existing one or to contribute with code. Please take care about the style guide and naming conventions. You can find more in our [CONTRIBUTING.md](https://github.com/gyptazy/ProxLB/blob/main/CONTRIBUTING.md) file.
+
+### Support
+If you need assistance or have any questions, we offer support through our dedicated [chat room](https://matrix.to/#/#proxlb:gyptazy.com) in Matrix or [Discord](https://discord.gg/JemGu7WbfQ). Join our community for real-time help, advice, and discussions. The Matrix and Discord room are bridged to ensure that the communication is not splitted - so simply feel free to join which fits most to you!
+
+Connect with us in our dedicated chat room for immediate support and live interaction with other users and developers. You can also visit our [GitHub Community](https://github.com/gyptazy/ProxLB/discussions/) to post your queries, share your experiences, and get support from fellow community members and moderators. You may also just open directly an issue [here](https://github.com/gyptazy/ProxLB/issues) on GitHub.
+
+| Support Channel | Link |
+|------|:------:|
+| Matrix | [#proxlb:gyptazy.com](https://matrix.to/#/#proxlb:gyptazy.com) |
+| Discord | [Discord](https://discord.gg/JemGu7WbfQ) |
+| GitHub Community | [GitHub Community](https://github.com/gyptazy/ProxLB/discussions/)
+| GitHub | [ProxLB GitHub](https://github.com/gyptazy/ProxLB/issues) |
+
+**Note:** Please always keep in mind that this is a one-man show project without any further help. This includes coding, testing, packaging and all the infrastructure around it to keep this project up and running.
 
 ### Enterprise-Support
 Running critical infrastructure in an enterprise environment often comes with requirements that go far beyond functionality alone. Enterprises typically expect predictable service levels, defined escalation paths, and guaranteed response times. In many cases, organizations also demand 24x7 support availability to ensure that their systems remain stable and resilient, even under unexpected circumstances.
 
-As the creator and maintainer of ProxLB, I operate as a one-man project. While I am continuously working to improve the software, I cannot provide the type of enterprise-grade support that large organizations may require. To address this need, several companies have stepped in to offer professional services around ProxLB in Proxmox VE clusters.
+[credativ.de GmbH](https://www.credativ.de/en/portfolio/support/proxmox-virtualization/) is also happy to provide enterprise support for ProxLB, including 24x7 support.
 
-Below is a list of organizations currently known to provide enterprise-level support for ProxLB. If your business relies on ProxLB in production and you require more than community-based support, these providers may be a good fit for your needs:
+## Prox-Tools Collection
+The [Prox-Tools collection](https://gyptazy.com/projects/) is a set of (mostly) open-source solutions crafted by our employee [@gyptazy](https://gyptazy.com/) with a clear mission: to close functional gaps in Proxmox VE environments that are especially relevant for enterprise use cases. While Proxmox VE already provides a powerful and flexible virtualization platform, real world production deployments often require additional tooling around scheduling, compatibility, automation, networking, and operational safety. Prox-Tools addresses exactly these needs.
+All tools in this collection are designed with the same principles in mind: practical relevance, minimal complexity, transparent behavior, and full openness. They are built to integrate seamlessly into existing Proxmox VE clusters, without vendor lock-in, and with a strong focus on reliability and operational clarity. The current tools are listed below:
+* [ProxLB](https://gyptazy.com/proxlb/): An advanced open-source load balancing and resource scheduling solution for Proxmox clusters.
+* [ProxCLMC](https://gyptazy.com/proxclmc/): A CPU compatibility validator across Proxmox VE nodes for safe live migrations.
+* [ProxSnap](https://gyptazy.com/proxsnap/): Snapshot management and cleanup tool for Proxmox VE clusters.
+* [ProxWall](https://gyptazy.com/proxwall/): Micro-segmentation and advanced firewalling and networking for Proxmox VE clusters. It is designed to give enterprises fine-grained control over east-west and north-south traffic.
+* [ProxWire](https://cdn.gyptazy.com/talks/ProxWire_Connecting_Proxmox_Clusters_Around_the_World_Without_Corosync.pdf): A forward-looking concept aimed at securely connecting Proxmox VE nodes across larger geographic distances.
 
-| Company| Country | Web |
-|------|:------:|:------:|
-| credativ | DE | [credativ.de](https://www.credativ.de/en/portfolio/support/proxmox-virtualization/) |
-
-*Note: If you provide support for ProxLB, feel free to create PR with your addition.*
-
-### Author(s)
+## Author(s)
  * Florian Paul Azim Hoberg @gyptazy (https://gyptazy.com)
