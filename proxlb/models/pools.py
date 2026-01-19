@@ -31,13 +31,13 @@ class Pools:
             {"name": <poolid>, "members": [<member_names>...]}.
             This method does not collect per-member metrics or perform node filtering.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the Pools class with the provided ProxLB data.
         """
 
     @staticmethod
-    def get_pools(proxmox_api: any) -> Dict[str, Any]:
+    def get_pools(proxmox_api: Any) -> Dict[str, Any]:
         """
         Retrieve all pools and their members from a Proxmox cluster.
 
@@ -54,7 +54,7 @@ class Pools:
                     to {"name": <poolid>, "members": [<member_names>...]}.
         """
         logger.debug("Starting: get_pools.")
-        pools = {"pools": {}}
+        pools: dict[str, Any] = {"pools": {}}
 
         # Pool objects: iterate over all pools in the cluster.
         # We keep pool members even if their nodes are ignored so resource accounting
@@ -81,7 +81,7 @@ class Pools:
         return pools
 
     @staticmethod
-    def get_pools_for_guest(guest_name: str, pools: Dict[str, Any]) -> Dict[str, Any]:
+    def get_pools_for_guest(guest_name: str, pools: Dict[str, Any]) -> list[str]:
         """
         Return the list of pool names that include the given guest.
 
@@ -117,7 +117,7 @@ class Pools:
         return guest_pools
 
     @staticmethod
-    def get_pool_node_affinity_strictness(proxlb_config: Dict[str, Any], guest_pools: list) -> bool:
+    def get_pool_node_affinity_strictness(proxlb_config: Dict[str, Any], guest_pools: list[str]) -> bool:
         """
         Retrieve the node affinity strictness setting for a guest across its pools.
 
