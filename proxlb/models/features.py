@@ -36,13 +36,13 @@ class Features:
     Notes:
         - Expects proxlb_data to be a dict with "nodes" and "meta" keys.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the Features class.
         """
 
     @staticmethod
-    def validate_available_features(proxlb_data: any) -> None:
+    def validate_available_features(proxlb_data: Any) -> None:
         """
         Validate and adjust feature flags in the provided proxlb_data according to Proxmox VE versions.
 
@@ -90,7 +90,7 @@ class Features:
         logger.debug("Finished: validate_available_features.")
 
     @staticmethod
-    def validate_any_non_pve9_node(meta: any, nodes: any) -> dict:
+    def validate_any_non_pve9_node(meta: Dict[str, Any], nodes: Any) -> Dict[str, Any]:
         """
         Validate if any node in the cluster is running Proxmox VE < 9.0.0 and update meta accordingly.
 
