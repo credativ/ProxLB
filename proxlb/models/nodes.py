@@ -6,7 +6,7 @@ Methods:
     __init__:
         Initializes the Nodes class.
 
-    get_nodes(proxmox_api: any, proxlb_config: Dict[str, Any]) -> Dict[str, Any]:
+    get_nodes(proxmox_api: Any, proxlb_config: Dict[str, Any]) -> Dict[str, Any]:
         Gets metrics of all nodes in a Proxmox cluster.
 
     set_node_maintenance(proxlb_config: Dict[str, Any], node_name: str) -> Dict[str, Any]:
@@ -22,7 +22,7 @@ __license__ = "GPL-3.0"
 
 
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Union
 from utils.logger import SystemdLogger
 from utils.helper import Helper
 
@@ -34,13 +34,13 @@ class Nodes:
     The Nodes class retrieves all running nodes in a Proxmox cluster
     and collects their resource metrics.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the Nodes class with the provided ProxLB data.
         """
 
     @staticmethod
-    def get_nodes(proxmox_api: any, proxlb_config: Dict[str, Any]) -> Dict[str, Any]:
+    def get_nodes(proxmox_api: Any, proxlb_config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Get metrics of all nodes in a Proxmox cluster.
 
@@ -56,7 +56,7 @@ class Nodes:
             Dict[str, Any]: A dictionary containing metrics and information for all running nodes.
         """
         logger.debug("Starting: get_nodes.")
-        nodes = {"nodes": {}}
+        nodes: dict[str, Any] = {"nodes": {}}
 
         for node in proxmox_api.nodes.get():
             # Ignoring a node results into ignoring all placed guests on the ignored node!
@@ -112,7 +112,7 @@ class Nodes:
         return nodes
 
     @staticmethod
-    def set_node_maintenance(proxmox_api, proxlb_config: Dict[str, Any], node_name: str) -> Dict[str, Any]:
+    def set_node_maintenance(proxmox_api: Any, proxlb_config: Dict[str, Any], node_name: str) -> bool:
         """
         Set nodes to maintenance mode based on the provided configuration.
 
@@ -130,7 +130,7 @@ class Nodes:
         logger.debug("Starting: set_node_maintenance.")
 
         # Evaluate maintenance mode by config
-        if proxlb_config.get("proxmox_cluster", None).get("maintenance_nodes", None) is not None:
+        if proxlb_config["proxmox_cluster"].get("maintenance_nodes", None) is not None:
             if len(proxlb_config.get("proxmox_cluster", {}).get("maintenance_nodes", [])) > 0:
                 if node_name in proxlb_config.get("proxmox_cluster", {}).get("maintenance_nodes", []):
                     logger.info(f"Node: {node_name} has been set to maintenance mode (by ProxLB config).")
@@ -149,9 +149,10 @@ class Nodes:
                         logger.debug(f"Node: {node_name} is not in maintenance mode by Proxmox HA API.")
 
         logger.debug("Finished: set_node_maintenance.")
+        return False
 
     @staticmethod
-    def set_node_ignore(proxlb_config: Dict[str, Any], node_name: str) -> Dict[str, Any]:
+    def set_node_ignore(proxlb_config: Dict[str, Any], node_name: str) -> bool:
         """
         Set nodes to be ignored based on the provided configuration.
 
@@ -167,16 +168,17 @@ class Nodes:
         """
         logger.debug("Starting: set_node_ignore.")
 
-        if proxlb_config.get("proxmox_cluster", None).get("ignore_nodes", None) is not None:
+        if proxlb_config["proxmox_cluster"].get("ignore_nodes", None) is not None:
             if len(proxlb_config.get("proxmox_cluster", {}).get("ignore_nodes", [])) > 0:
                 if node_name in proxlb_config.get("proxmox_cluster", {}).get("ignore_nodes", []):
                     logger.info(f"Node: {node_name} has been set to be ignored. Not adding node!")
                     return True
 
         logger.debug("Finished: set_node_ignore.")
+        return False
 
     @staticmethod
-    def get_node_rrd_data(proxmox_api, node_name: str, object_name: str, object_type: str, spikes=False) -> float:
+    def get_node_rrd_data(proxmox_api: Any, node_name: str, object_name: str, object_type: str, spikes: bool = False) -> float:
         """
         Retrieves the rrd data metrics for a specific resource (CPU, memory, disk) of a node.
 
@@ -211,8 +213,8 @@ class Nodes:
         if spikes:
             # RRD data is collected every minute, so we look at the last 6 entries
             # and take the maximum value to represent the spike
-            rrd_data_value = [row.get(lookup_key) for row in node_data_rrd if row.get(lookup_key) is not None]
-            rrd_data_value = max(rrd_data_value[-6:], default=0.0)
+            _rrd_data_value = [row.get(lookup_key) for row in node_data_rrd if row.get(lookup_key) is not None]
+            rrd_data_value = max(_rrd_data_value[-6:], default=0.0)
         else:
             # Calculate the average value from the RRD data entries
             rrd_data_value = sum(entry.get(lookup_key, 0.0) for entry in node_data_rrd) / len(node_data_rrd)
@@ -222,7 +224,7 @@ class Nodes:
         return rrd_data_value
 
     @staticmethod
-    def get_node_pve_version(proxmox_api, node_name: str) -> float:
+    def get_node_pve_version(proxmox_api: Any, node_name: str) -> float:
         """
         Return the Proxmox VE (PVE) version for a given node by querying the Proxmox API.
 
@@ -253,10 +255,12 @@ class Nodes:
 
         logger.debug(f"Got version {version['version']} for node {node_name}.")
         logger.debug("Finished: get_node_pve_version.")
-        return version["version"]
+        ret = version["version"]
+        assert isinstance(ret, float)
+        return ret
 
     @staticmethod
-    def set_node_resource_reservation(node_name, resource_value, proxlb_config, resource_type) -> int:
+    def set_node_resource_reservation(node_name: str, resource_value: int, proxlb_config: Dict[str, Any], resource_type: str) -> Union[int, float]:
         """
         Check if there is a configured resource reservation for the current node and apply it as needed.
         Checks for a node specific config first, then if there is any configured default and if neither then nothing is reserved.
