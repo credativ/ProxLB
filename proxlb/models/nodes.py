@@ -6,7 +6,7 @@ Methods:
     __init__:
         Initializes the Nodes class.
 
-    get_nodes(proxmox_api: Any, proxlb_config: Dict[str, Any]) -> Dict[str, Any]:
+    get_nodes(proxmox_api: ProxmoxApi, proxlb_config: Dict[str, Any]) -> Dict[str, Any]:
         Gets metrics of all nodes in a Proxmox cluster.
 
     set_node_maintenance(proxlb_config: Dict[str, Any], node_name: str) -> Dict[str, Any]:
@@ -25,6 +25,7 @@ import time
 from typing import Dict, Any, Union
 from utils.logger import SystemdLogger
 from utils.helper import Helper
+from utils.proxmox_api import ProxmoxApi
 
 logger = SystemdLogger()
 
@@ -40,7 +41,7 @@ class Nodes:
         """
 
     @staticmethod
-    def get_nodes(proxmox_api: Any, proxlb_config: Dict[str, Any]) -> Dict[str, Any]:
+    def get_nodes(proxmox_api: ProxmoxApi, proxlb_config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Get metrics of all nodes in a Proxmox cluster.
 
@@ -112,7 +113,7 @@ class Nodes:
         return nodes
 
     @staticmethod
-    def set_node_maintenance(proxmox_api: Any, proxlb_config: Dict[str, Any], node_name: str) -> bool:
+    def set_node_maintenance(proxmox_api: ProxmoxApi, proxlb_config: Dict[str, Any], node_name: str) -> bool:
         """
         Set nodes to maintenance mode based on the provided configuration.
 
@@ -178,7 +179,7 @@ class Nodes:
         return False
 
     @staticmethod
-    def get_node_rrd_data(proxmox_api: Any, node_name: str, object_name: str, object_type: str, spikes: bool = False) -> float:
+    def get_node_rrd_data(proxmox_api: ProxmoxApi, node_name: str, object_name: str, object_type: str, spikes: bool = False) -> float:
         """
         Retrieves the rrd data metrics for a specific resource (CPU, memory, disk) of a node.
 
@@ -224,7 +225,7 @@ class Nodes:
         return rrd_data_value
 
     @staticmethod
-    def get_node_pve_version(proxmox_api: Any, node_name: str) -> float:
+    def get_node_pve_version(proxmox_api: ProxmoxApi, node_name: str) -> float:
         """
         Return the Proxmox VE (PVE) version for a given node by querying the Proxmox API.
 

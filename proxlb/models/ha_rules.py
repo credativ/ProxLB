@@ -10,6 +10,7 @@ __license__ = "GPL-3.0"
 
 from typing import Dict, Any, List
 from utils.logger import SystemdLogger
+from utils.proxmox_api import ProxmoxApi
 
 logger = SystemdLogger()
 
@@ -36,7 +37,7 @@ class HaRules:
         """
 
     @staticmethod
-    def get_ha_rules(proxmox_api: Any, meta: Dict[str, Any]) -> Dict[str, Any]:
+    def get_ha_rules(proxmox_api: ProxmoxApi, meta: Dict[str, Any]) -> Dict[str, Any]:
         """
         Retrieve all HA rules from a Proxmox cluster.
 

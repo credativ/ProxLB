@@ -10,6 +10,7 @@ __license__ = "GPL-3.0"
 
 from typing import Dict, Any
 from utils.logger import SystemdLogger
+from utils.proxmox_api import ProxmoxApi
 from models.tags import Tags
 import time
 
@@ -37,7 +38,7 @@ class Pools:
         """
 
     @staticmethod
-    def get_pools(proxmox_api: Any) -> Dict[str, Any]:
+    def get_pools(proxmox_api: ProxmoxApi) -> Dict[str, Any]:
         """
         Retrieve all pools and their members from a Proxmox cluster.
 

@@ -10,6 +10,7 @@ __license__ = "GPL-3.0"
 
 from typing import Dict, Any, Optional
 from utils.logger import SystemdLogger
+from utils.proxmox_api import ProxmoxApi
 from models.pools import Pools
 from models.ha_rules import HaRules
 from models.tags import Tags
@@ -37,7 +38,7 @@ class Guests:
         """
 
     @staticmethod
-    def get_guests(proxmox_api: Any, pools: Dict[str, Any], ha_rules: Dict[str, Any], nodes: Dict[str, Any], meta: Dict[str, Any], proxlb_config: Dict[str, Any]) -> Dict[str, Any]:
+    def get_guests(proxmox_api: ProxmoxApi, pools: Dict[str, Any], ha_rules: Dict[str, Any], nodes: Dict[str, Any], meta: Dict[str, Any], proxlb_config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Get metrics of all guests in a Proxmox cluster.
 
@@ -161,7 +162,7 @@ class Guests:
         return guests
 
     @staticmethod
-    def get_guest_rrd_data(proxmox_api: Any, node_name: str, vm_id: int, vm_name: str, object_name: str, object_type: Optional[str], spikes: bool = False) -> float:
+    def get_guest_rrd_data(proxmox_api: ProxmoxApi, node_name: str, vm_id: int, vm_name: str, object_name: str, object_type: Optional[str], spikes: bool = False) -> float:
         """
         Retrieves the rrd data metrics for a specific resource (CPU, memory, disk) of a guest VM or CT.
 

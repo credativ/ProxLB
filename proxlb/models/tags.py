@@ -15,6 +15,7 @@ from typing import List
 from typing import Dict, Any
 from utils.logger import SystemdLogger
 from utils.helper import Helper
+from utils.proxmox_api import ProxmoxApi
 
 logger = SystemdLogger()
 
@@ -48,7 +49,7 @@ class Tags:
         """
 
     @staticmethod
-    def get_tags_from_guests(proxmox_api: Any, node: str, guest_id: int, guest_type: str) -> List[str]:
+    def get_tags_from_guests(proxmox_api: ProxmoxApi, node: str, guest_id: int, guest_type: str) -> List[str]:
         """
         Get tags for a guest from the Proxmox cluster by the API.
 

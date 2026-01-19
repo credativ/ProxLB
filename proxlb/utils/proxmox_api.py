@@ -327,7 +327,7 @@ class ProxmoxApi:
         logger.debug("Finished: test_api_proxmox_host_ipv6.")
         return False
 
-    def test_api_user_permissions(self, proxmox_api: Any) -> None:
+    def test_api_user_permissions(self, proxmox_api: proxmoxer.ProxmoxAPI) -> None:
         """
         Test the permissions of the current user/token used for the Proxmox API.
 

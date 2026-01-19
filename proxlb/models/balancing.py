@@ -14,6 +14,7 @@ import proxmoxer
 import time
 from itertools import islice
 from utils.logger import SystemdLogger
+from utils.proxmox_api import ProxmoxApi
 from typing import Dict, Any, Generator, Optional
 
 logger = SystemdLogger()
@@ -44,7 +45,7 @@ class Balancing:
         is reached. Returns True if the job completed successfully, False otherwise.
     """
 
-    def __init__(self, proxmox_api: Any, proxlb_data: Dict[str, Any]) -> None:
+    def __init__(self, proxmox_api: ProxmoxApi, proxlb_data: Dict[str, Any]) -> None:
         """
         Initializes the Balancing class with the provided ProxLB data.
 
@@ -125,7 +126,7 @@ class Balancing:
                 if job_id:
                     self.get_rebalancing_job_status(proxmox_api, proxlb_data, guest_name, node, job_id)
 
-    def exec_rebalancing_vm(self, proxmox_api: Any, proxlb_data: Dict[str, Any], guest_name: str) -> Optional[int]:
+    def exec_rebalancing_vm(self, proxmox_api: ProxmoxApi, proxlb_data: Dict[str, Any], guest_name: str) -> Optional[int]:
         """
         Executes the rebalancing of a virtual machine (VM) to a new node within the cluster.
         This function initiates the migration of a specified VM to a target node as part of the
@@ -177,7 +178,7 @@ class Balancing:
         logger.debug("Finished: exec_rebalancing_vm.")
         return job_id
 
-    def exec_rebalancing_ct(self, proxmox_api: Any, proxlb_data: Dict[str, Any], guest_name: str) -> Optional[int]:
+    def exec_rebalancing_ct(self, proxmox_api: ProxmoxApi, proxlb_data: Dict[str, Any], guest_name: str) -> Optional[int]:
         """
         Executes the rebalancing of a container (CT) to a new node within the cluster.
         This function initiates the migration of a specified CT to a target node as part of the
@@ -208,7 +209,7 @@ class Balancing:
         logger.debug("Finished: exec_rebalancing_ct.")
         return job_id
 
-    def get_rebalancing_job_status(self, proxmox_api: Any, proxlb_data: Dict[str, Any], guest_name: str, guest_current_node: str, job_id: int, retry_counter: int = 1) -> bool:
+    def get_rebalancing_job_status(self, proxmox_api: ProxmoxApi, proxlb_data: Dict[str, Any], guest_name: str, guest_current_node: str, job_id: int, retry_counter: int = 1) -> bool:
         """
         Monitors the status of a rebalancing job on a Proxmox node until it completes or a timeout is reached.
 
