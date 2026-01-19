@@ -42,13 +42,13 @@ class Tags:
         get_ignore(tags: List[str]) -> bool:
             Evaluates and returns a boolean indicating whether the guest should be ignored based on the provided list of tags.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the tags class.
         """
 
     @staticmethod
-    def get_tags_from_guests(proxmox_api: any, node: str, guest_id: int, guest_type: str) -> List[str]:
+    def get_tags_from_guests(proxmox_api: Any, node: str, guest_id: int, guest_type: str) -> List[str]:
         """
         Get tags for a guest from the Proxmox cluster by the API.
 
@@ -76,11 +76,13 @@ class Tags:
         if isinstance(tags, str):
             tags = tags.split(";")
 
+        assert isinstance(tags, list), "tags are not a list"
+
         logger.debug("Finished: get_tags_from_guests.")
         return tags
 
     @staticmethod
-    def get_affinity_groups(tags: List[str], pools: List[str], ha_rules: List[str], proxlb_config: Dict[str, Any]) -> List[str]:
+    def get_affinity_groups(tags: List[str], pools: List[str], ha_rules: List[Dict[str, Any]], proxlb_config: Dict[str, Any]) -> List[str]:
         """
         Get affinity tags for a guest from the Proxmox cluster by the API.
 
@@ -130,7 +132,7 @@ class Tags:
         return affinity_tags
 
     @staticmethod
-    def get_anti_affinity_groups(tags: List[str], pools: List[str], ha_rules: List[str], proxlb_config: Dict[str, Any]) -> List[str]:
+    def get_anti_affinity_groups(tags: List[str], pools: List[str], ha_rules: List[Dict[str, Any]], proxlb_config: Dict[str, Any]) -> List[str]:
         """
         Get anti-affinity tags for a guest from the Proxmox cluster by the API.
 
@@ -210,7 +212,7 @@ class Tags:
         return ignore_tag
 
     @staticmethod
-    def get_node_relationships(tags: List[str], nodes: Dict[str, Any], pools: List[str], ha_rules: List[str], proxlb_config: Dict[str, Any]) -> str:
+    def get_node_relationships(tags: List[str], nodes: Dict[str, Any], pools: List[str], ha_rules: List[Dict[str, Any]], proxlb_config: Dict[str, Any]) -> List[str]:
         """
         Get a node relationship tag for a guest from the Proxmox cluster by the API to pin
         a guest to a node or by defined pools from ProxLB configuration.
@@ -226,7 +228,7 @@ class Tags:
             proxlb_config (Dict): A dict holding the ProxLB configuration.
 
         Returns:
-            Str: The related hypervisor node name(s).
+            List[str]: The related hypervisor node name(s).
         """
         logger.debug("Starting: get_node_relationships.")
         node_relationship_tags = []
