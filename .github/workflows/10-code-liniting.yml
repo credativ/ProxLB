@@ -5,7 +5,12 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8"]
+        python-version:
+          - 3.9
+          - 3.11
+          - 3.12
+          - 3.13
+          - 3.14
     steps:
       - uses: actions/checkout@v3
       - name: Setup dependencies for code linting
@@ -14,8 +19,9 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install additional dependencies for code linting
         run: |
-          sudo apt-get update
-          sudo apt-get -y install python3-pycodestyle pycodestyle
+          python3 -m venv .venv
+          ./.venv/bin/pip3 install --upgrade pip
+          ./.venv/bin/pip3 install .
+          ./.venv/bin/pip3 install mypy pytest pytest-mypy pytest-pycodestyle pytest-ty types-PyYAML types-requests types-setuptools
       - name: Run code linting on ProxLB Python code
-        run: |
-          pycodestyle proxlb/*
+        run: ./.venv/bin/py.test --mypy --pycodestyle --ty --cache-clear -vv
