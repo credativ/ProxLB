@@ -16,7 +16,7 @@ import sys
 import time
 import utils.version
 from utils.logger import SystemdLogger
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 from types import FrameType
 
 logger = SystemdLogger()
@@ -45,7 +45,7 @@ class Helper:
     """
     proxlb_reload = False
 
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the general Helper clas.
         """
@@ -239,7 +239,7 @@ class Helper:
         sys.exit(0)
 
     @staticmethod
-    def get_host_port_from_string(host_object):
+    def get_host_port_from_string(host_object: str) -> Tuple[str, int]:
         """
         Parses a string containing a host (IPv4, IPv6, or hostname) and an optional port, and returns a tuple of (host, port).
 
@@ -275,8 +275,8 @@ class Helper:
 
         # IPv4 or hostname with port
         elif colon_count == 1:
-            host, port = host_object.split(':')
-            return host, int(port)
+            parts = host_object.split(':')
+            return parts[0], int(parts[1])
 
         # IPv6 (with or without port, assume last colon is port)
         else:
@@ -312,7 +312,7 @@ class Helper:
             return False
 
     @staticmethod
-    def tcp_connect_test(addr_family: int, host: str, port: int, timeout: int) -> tuple[bool, int | None]:
+    def tcp_connect_test(addr_family: int, host: str, port: int, timeout: int) -> tuple[bool, Optional[int]]:
         """
         Attempt a TCP connection to the specified host and port to test the reachability.
 
