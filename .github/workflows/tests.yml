@@ -1,0 +1,31 @@
+---
+name: tests
+on:
+  pull_request:
+  push:
+    branches:
+    - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - python:3.9
+          - python:3.11
+          - python:3.12
+          - python:3.13
+          - python:3.14
+    container:
+        image: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          python3 -m venv .venv
+          ./.venv/bin/pip3 install --upgrade pip
+          ./.venv/bin/pip3 install .
+          ./.venv/bin/pip3 install mypy pytest pytest-mypy types-PyYAML types-requests types-setuptools
+          ./.venv/bin/py.test --mypy --cache-clear -vv
+          rm -rf .venv
+
