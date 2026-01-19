@@ -8,7 +8,7 @@ __copyright__ = "Copyright (C) 2025 Florian Paul Azim Hoberg (@gyptazy)"
 __license__ = "GPL-3.0"
 
 
-from typing import Dict, Any
+from typing import Dict, Any, List
 from utils.logger import SystemdLogger
 
 logger = SystemdLogger()
@@ -30,13 +30,13 @@ class HaRules:
             {"rule": <rule_id>, "type": <affinity_type>, "members": [<resource_ids>...]}.
             Converts affinity settings to descriptive format (affinity or anti-affinity).
     """
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the HA Rules class with the provided ProxLB data.
         """
 
     @staticmethod
-    def get_ha_rules(proxmox_api: any, meta: dict) -> Dict[str, Any]:
+    def get_ha_rules(proxmox_api: Any, meta: Dict[str, Any]) -> Dict[str, Any]:
         """
         Retrieve all HA rules from a Proxmox cluster.
 
@@ -54,7 +54,7 @@ class HaRules:
                                     to {"rule": <rule_id>, "type": <affinity_type>, "members": [<resource_ids>...]}.
         """
         logger.debug("Starting: get_ha_rules.")
-        ha_rules = {"ha_rules": {}}
+        ha_rules: Dict[str, Any] = {"ha_rules": {}}
 
         # If any node is non PVE 9, skip fetching HA rules as they are unsupported
         if meta["meta"]["cluster_non_pve9"]:
@@ -98,7 +98,7 @@ class HaRules:
         return ha_rules
 
     @staticmethod
-    def get_ha_rules_for_guest(guest_name: str, ha_rules: Dict[str, Any], vm_id: int) -> Dict[str, Any]:
+    def get_ha_rules_for_guest(guest_name: str, ha_rules: Dict[str, Any], vm_id: int) -> List[Dict[str, Any]]:
         """
         Return the list of HA rules that include the given guest.
 
