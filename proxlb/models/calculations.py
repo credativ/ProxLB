@@ -11,7 +11,7 @@ __license__ = "GPL-3.0"
 
 
 import sys
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from utils.logger import SystemdLogger
 
 logger = SystemdLogger()
@@ -64,7 +64,7 @@ class Calculations:
         """
 
     @staticmethod
-    def set_node_assignments(proxlb_data: Dict[str, Any]) -> Dict[str, Any]:
+    def set_node_assignments(proxlb_data: Dict[str, Any]) -> None:
         """
         Set the assigned resources of the nodes based on the current assigned
         guest resources by their created groups as an initial base.
@@ -93,6 +93,7 @@ class Calculations:
 
         logger.debug("Finished: set_node_assignments.")
 
+    @staticmethod
     def set_node_hot(proxlb_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Evaluates node 'full' pressure metrics for memory, cpu, and io
@@ -137,6 +138,7 @@ class Calculations:
         logger.debug("Finished: set_node_hot.")
         return proxlb_data
 
+    @staticmethod
     def set_guest_hot(proxlb_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Evaluates guest 'full' pressure metrics for memory, cpu, and io
@@ -171,7 +173,7 @@ class Calculations:
         return proxlb_data
 
     @staticmethod
-    def get_balanciness(proxlb_data: Dict[str, Any]) -> Dict[str, Any]:
+    def get_balanciness(proxlb_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Get the blanaciness for further actions where the highest and lowest
         usage or assignments of Proxmox nodes are compared. Based on the users
@@ -263,9 +265,10 @@ class Calculations:
             logger.warning("No guests for balancing found.")
 
         logger.debug("Finished: get_balanciness.")
+        return None
 
     @staticmethod
-    def get_most_free_node(proxlb_data: Dict[str, Any], return_node: bool = False, guest_node_relation_list: list = []) -> Dict[str, Any]:
+    def get_most_free_node(proxlb_data: Dict[str, Any], return_node: bool = False, guest_node_relation_list: Optional[list[str]] = None) -> Dict[str, Any]:
         """
         Get the name of the Proxmox node in the cluster with the most free resources based on
         the user defined method (e.g.: memory) and mode (e.g.: used).
@@ -289,7 +292,7 @@ class Calculations:
 
         # Filter and include nodes that given by a relationship between guest and node. This is only
         # used if the guest has a relationship to a node defined by "pin" tags.
-        if len(guest_node_relation_list) > 0:
+        if guest_node_relation_list:
             filtered_nodes = [node for node in proxlb_data["nodes"].values() if node["name"] in guest_node_relation_list]
 
         # Filter by the defined methods and modes for balancing
@@ -322,9 +325,10 @@ class Calculations:
             sys.exit(0)
 
         logger.debug("Finished: get_most_free_node.")
+        return proxlb_data
 
     @staticmethod
-    def relocate_guests_on_maintenance_nodes(proxlb_data: Dict[str, Any]):
+    def relocate_guests_on_maintenance_nodes(proxlb_data: Dict[str, Any]) -> None:
         """
         Relocates guests that are currently on nodes marked for maintenance to
         nodes with the most available resources.
@@ -354,7 +358,7 @@ class Calculations:
         logger.debug("Finished: relocate_guests_on_maintenance_nodes.")
 
     @staticmethod
-    def relocate_guests(proxlb_data: Dict[str, Any]):
+    def relocate_guests(proxlb_data: Dict[str, Any]) -> None:
         """
         Relocates guests within the provided data structure to ensure affinity groups are
         placed on nodes with the most free resources.
@@ -458,7 +462,7 @@ class Calculations:
         logger.debug("Finished: relocate_guests.")
 
     @staticmethod
-    def val_anti_affinity(proxlb_data: Dict[str, Any], guest_name: str):
+    def val_anti_affinity(proxlb_data: Dict[str, Any], guest_name: str) -> None:
         """
         Validates and assigns nodes to guests based on anti-affinity rules.
 
@@ -512,7 +516,7 @@ class Calculations:
         logger.debug("Finished: val_anti_affinity.")
 
     @staticmethod
-    def val_node_relationships(proxlb_data: Dict[str, Any], guest_name: str):
+    def val_node_relationships(proxlb_data: Dict[str, Any], guest_name: str) -> None:
         """
         Validates and assigns guests to nodes based on defined relationships based on tags.
 
@@ -557,7 +561,7 @@ class Calculations:
         logger.debug("Finished: val_node_relationships.")
 
     @staticmethod
-    def update_node_resources(proxlb_data: Dict[str, Any]):
+    def update_node_resources(proxlb_data: Dict[str, Any]) -> None:
         """
         Updates the resource allocation and usage statistics for nodes when a guest
         is moved from one node to another.
@@ -633,7 +637,8 @@ class Calculations:
 
         logger.debug("Finished: update_node_resources.")
 
-    def validate_affinity_map(proxlb_data: Dict[str, Any]):
+    @staticmethod
+    def validate_affinity_map(proxlb_data: Dict[str, Any]) -> None:
         """
         Validates the affinity and anti-affinity constraints for all guests in the ProxLB data structure.
 
@@ -689,7 +694,9 @@ class Calculations:
             node_name_current (str): The name of the current node where the guest runs on.
 
         """
-        return proxlb_data["guests"][guest_name]["node_current"]
+        node_current = proxlb_data["guests"][guest_name]["node_current"]
+        assert isinstance(node_current, str), "node_current is not a str"
+        return node_current
 
     @staticmethod
     def validate_current_affinity(proxlb_data: Dict[str, Any], guest_name: str) -> bool:
