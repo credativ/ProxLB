@@ -8,7 +8,7 @@ __copyright__ = "Copyright (C) 2025 Florian Paul Azim Hoberg (@gyptazy)"
 __license__ = "GPL-3.0"
 
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from utils.logger import SystemdLogger
 from models.pools import Pools
 from models.ha_rules import HaRules
@@ -31,13 +31,13 @@ class Guests:
             Retrieves metrics for all running guests (both VMs and CTs) across all nodes in the Proxmox cluster.
             It collects resource metrics such as CPU, memory, and disk usage, as well as tags and affinity/anti-affinity groups.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the Guests class with the provided ProxLB data.
         """
 
     @staticmethod
-    def get_guests(proxmox_api: any, pools: Dict[str, Any], ha_rules: Dict[str, Any], nodes: Dict[str, Any], meta: Dict[str, Any], proxlb_config: Dict[str, Any]) -> Dict[str, Any]:
+    def get_guests(proxmox_api: Any, pools: Dict[str, Any], ha_rules: Dict[str, Any], nodes: Dict[str, Any], meta: Dict[str, Any], proxlb_config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Get metrics of all guests in a Proxmox cluster.
 
@@ -57,7 +57,7 @@ class Guests:
             Dict[str, Any]: A dictionary containing metrics and information for all running guests.
         """
         logger.debug("Starting: get_guests.")
-        guests = {"guests": {}}
+        guests: dict[str, Dict[str, Any]] = {"guests": {}}
 
         # Guest objects are always only in the scope of a node.
         # Therefore, we need to iterate over all nodes to get all guests.
@@ -161,7 +161,7 @@ class Guests:
         return guests
 
     @staticmethod
-    def get_guest_rrd_data(proxmox_api, node_name: str, vm_id: int, vm_name: str, object_name: str, object_type: str, spikes=False) -> float:
+    def get_guest_rrd_data(proxmox_api: Any, node_name: str, vm_id: int, vm_name: str, object_name: str, object_type: Optional[str], spikes: bool = False) -> float:
         """
         Retrieves the rrd data metrics for a specific resource (CPU, memory, disk) of a guest VM or CT.
 
@@ -199,8 +199,8 @@ class Guests:
                 # RRD data is collected every minute, so we look at the last 6 entries
                 # and take the maximum value to represent the spike
                 logger.debug(f"Getting RRD data (spike: {spikes}) of pressure for {object_name} {object_type} from guest: {vm_name}.")
-                rrd_data_value = [row.get(lookup_key) for row in guest_data_rrd if row.get(lookup_key) is not None]
-                rrd_data_value = max(rrd_data_value[-6:], default=0.0)
+                _rrd_data_value = [row.get(lookup_key) for row in guest_data_rrd if row.get(lookup_key) is not None]
+                rrd_data_value = max(_rrd_data_value[-6:], default=0.0)
             else:
                 # Calculate the average value from the RRD data entries
                 logger.debug(f"Getting RRD data (spike: {spikes}) of pressure for {object_name} {object_type} from guest: {vm_name}.")
