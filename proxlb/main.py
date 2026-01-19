@@ -29,7 +29,7 @@ from models.ha_rules import HaRules
 from utils.helper import Helper
 
 
-def main():
+def main() -> None:
     """
     ProxLB main function
     """

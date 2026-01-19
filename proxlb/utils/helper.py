@@ -16,7 +16,7 @@ import sys
 import time
 import utils.version
 from utils.logger import SystemdLogger
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 from types import FrameType
 
 logger = SystemdLogger()
@@ -204,7 +204,7 @@ class Helper:
         logger.debug("Finished: print_json.")
 
     @staticmethod
-    def handler_sighup(signum: int, frame: FrameType) -> None:
+    def handler_sighup(signum: int, frame: Optional[FrameType]) -> None:
         """
         Signal handler for SIGHUP.
 
@@ -222,7 +222,7 @@ class Helper:
         logger.debug("Finished: handle_sighup.")
 
     @staticmethod
-    def handler_sigint(signum: int, frame: FrameType) -> None:
+    def handler_sigint(signum: int, frame: Optional[FrameType]) -> None:
         """
         Signal handler for SIGINT. (triggered by CTRL+C).
 
