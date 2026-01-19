@@ -18,7 +18,7 @@ class CliParser:
     """
     The CliParser class handles the parsing of command-line interface (CLI) arguments.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the CliParser class.
 
@@ -84,7 +84,7 @@ class CliParser:
             argparse.Namespace: An object containing the parsed CLI arguments.
         """
         logger.debug("Starting: parse_args.")
-        logger.debug(self.parser.parse_args())
+        logger.debug(str(self.parser.parse_args()))
 
         logger.debug("Finished: parse_args.")
         return self.parser.parse_args()
