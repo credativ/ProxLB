@@ -10,8 +10,11 @@ __license__ = "GPL-3.0"
 
 import logging
 import sys
+
+from typing import Union
+
 try:
-    from systemd.journal import JournalHandler
+    from systemd.journal import JournalHandler  # type: ignore[import-not-found]
     SYSTEMD_PRESENT = True
 except ImportError:
     SYSTEMD_PRESENT = False
@@ -53,14 +56,14 @@ class SystemdLogger:
     # Create a singleton instance variable
     instance = None
 
-    def __new__(cls, name: str = "ProxLB", level: str = logging.INFO) -> 'SystemdLogger':
+    def __new__(cls, name: str = "ProxLB", level: Union[int, str] = logging.INFO) -> 'SystemdLogger':
         """
         Creating a new systemd logger class based on a given logging name
         and its logging level/verbosity.
 
         Args:
             name (str): The application name that is being used for the logger.
-            level (str): The log level defined as a string (e.g.: INFO).
+            level (int|str): The log level defined as a string (e.g.: 'INFO') or int (logging.INFO)
 
         Returns:
             SystemdLogger: The systemd logger object.
@@ -71,14 +74,14 @@ class SystemdLogger:
             cls.instance.initialize_logger(name, level)
         return cls.instance
 
-    def initialize_logger(self, name: str, level: str) -> None:
+    def initialize_logger(self, name: str, level: Union[int, str]) -> None:
         """
         Initializing the systemd logger class based on a given logging name
         and its logging level/verbosity.
 
         Args:
             name (str): The application name that is being used for the logger.
-            level (str): The log level defined as a string (e.g.: INFO).
+            level (int|str): The log level defined as a string (e.g.: 'INFO') or int (logging.INFO).
         """
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level)
@@ -115,31 +118,31 @@ class SystemdLogger:
         self.logger.debug("Set to debug level")
 
     # Handle systemd log levels
-    def debug(self, msg: str) -> str:
+    def debug(self, msg: str) -> None:
         """
         Logger out for messages of type: DEBUG
         """
         self.logger.debug(msg)
 
-    def info(self, msg: str) -> str:
+    def info(self, msg: str) -> None:
         """
         Logger out for messages of type: INFO
         """
         self.logger.info(msg)
 
-    def warning(self, msg: str) -> str:
+    def warning(self, msg: str) -> None:
         """
         Logger out for messages of type: WARNING
         """
         self.logger.warning(msg)
 
-    def error(self, msg: str) -> str:
+    def error(self, msg: str) -> None:
         """
         Logger out for messages of type: ERROR
         """
         self.logger.error(msg)
 
-    def critical(self, msg: str) -> str:
+    def critical(self, msg: str) -> None:
         """
         Logger out for messages of type: CRITICAL
         """
