@@ -225,24 +225,23 @@ class Nodes:
         return rrd_data_value
 
     @staticmethod
-    def get_node_pve_version(proxmox_api: ProxmoxApi, node_name: str) -> float:
+    def get_node_pve_version(proxmox_api: ProxmoxApi, node_name: str) -> str:
         """
         Return the Proxmox VE (PVE) version for a given node by querying the Proxmox API.
 
         This function calls proxmox_api.nodes(node_name).version.get() and extracts the
-        'version' field from the returned mapping. The value is expected to be numeric
-        (or convertible to float) and is returned as a float.
+        'version' field from the returned mapping.
 
         Args:
-            proxmox_api (Any): The Proxmox API client instance.
+            proxmox_api (ProxmoxApi): The Proxmox API client instance.
             node_name (str): The name of the node hosting the guest.
 
         Returns:
-            float: The PVE version for the specified node as a floating point number.
+            str: The PVE version for the specified node.
 
         Raises:
         Exception: If the proxmox_api call fails, returns an unexpected structure, or the
-                   'version' field is missing or cannot be converted to float. Callers should
+                   'version' field is missing or is not a string. Callers should
                     handle or propagate exceptions as appropriate.
         """
         logger.debug("Starting: get_node_pve_version.")
@@ -257,7 +256,10 @@ class Nodes:
         logger.debug(f"Got version {version['version']} for node {node_name}.")
         logger.debug("Finished: get_node_pve_version.")
         ret = version["version"]
-        assert isinstance(ret, float)
+        # https://pve.proxmox.com/pve-docs-7/api-viewer/#/nodes/{node}/version
+        # https://pve.proxmox.com/pve-docs-8/api-viewer/#/nodes/{node}/version
+        # https://pve.proxmox.com/pve-docs/api-viewer/#/nodes/{node}/version
+        assert isinstance(ret, str), f"{ret} is not a str"
         return ret
 
     @staticmethod
