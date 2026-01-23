@@ -18,9 +18,22 @@ import utils.version
 from utils.logger import SystemdLogger
 from typing import Dict, Any
 from types import FrameType
+from threading import Event
+
 
 logger = SystemdLogger()
 
+class RuntimeSignals:
+    reload = Event()
+    stop = Event()
+
+class ProxLBStop(Exception):
+    """Raised when ProxLB should stop execution cleanly."""
+    pass
+
+class ProxLBConfigError(Exception):
+    """Raised when configuration is invalid."""
+    pass
 
 class Helper:
     """
@@ -43,11 +56,10 @@ class Helper:
         get_daemon_mode(proxlb_config: Dict[str, Any]) -> None:
             Checks if the daemon mode is active and handles the scheduling accordingly.
     """
-    proxlb_reload = False
 
     def __init__(self):
         """
-        Initializes the general Helper clas.
+        Initializes the general Helper class.
         """
 
     @staticmethod
@@ -109,10 +121,10 @@ class Helper:
         """
         if print_version:
             print(f"{utils.version.__app_name__} version: {utils.version.__version__}\n(C) 2025 by {utils.version.__author__}\n{utils.version.__url__}")
-            sys.exit(0)
+            raise ProxLBStop()
 
     @staticmethod
-    def get_daemon_mode(proxlb_config: Dict[str, Any]) -> None:
+    def get_daemon_mode(proxlb_config: Dict[str, Any]) -> int | None:
         """
         Checks if the daemon mode is active and handles the scheduling accordingly.
 
@@ -128,7 +140,7 @@ class Helper:
             # Validate schedule format which changed in v1.1.1
             if type(proxlb_config["service"].get("schedule", None)) != dict:
                 logger.error("Invalid format for schedule. Please use 'hours' or 'minutes'.")
-                sys.exit(1)
+                raise ProxLBConfigError("Invalid schedule format")
 
             # Convert hours to seconds
             if proxlb_config["service"]["schedule"].get("format", "hours") == "hours":
@@ -138,17 +150,15 @@ class Helper:
                 sleep_seconds = proxlb_config.get("service", {}).get("schedule", {}).get("interval", 720) * 60
             else:
                 logger.error("Invalid format for schedule. Please use 'hours' or 'minutes'.")
-                sys.exit(1)
+                raise ProxLBConfigError("Invalid schedule format")
 
             logger.info(f"Daemon mode active: Next run in: {proxlb_config.get('service', {}).get('schedule', {}).get('interval', 12)} {proxlb_config['service']['schedule'].get('format', 'hours')}.")
-            time.sleep(sleep_seconds)
+            return sleep_seconds
 
         else:
             logger.debug("Successfully executed ProxLB. Daemon mode not active - stopping.")
-            print("Daemon mode not active - stopping.")
-            sys.exit(0)
-
-        logger.debug("Finished: get_daemon_mode.")
+            logger.info("Daemon mode not active - stopping.")
+            raise ProxLBStop()
 
     @staticmethod
     def get_service_delay(proxlb_config: Dict[str, Any]) -> None:
@@ -172,8 +182,7 @@ class Helper:
             elif proxlb_config["service"]["delay"].get("format", "hours") == "minutes":
                 sleep_seconds = proxlb_config.get("service", {}).get("delay", {}).get("time", 60) * 60
             else:
-                logger.error("Invalid format for service delay. Please use 'hours' or 'minutes'.")
-                sys.exit(1)
+                raise ProxLBConfigError("Invalid service.delay.format (use 'hours' or 'minutes')")
 
             logger.info(f"Service delay active: First run in: {proxlb_config.get('service', {}).get('delay', {}).get('time', 1)} {proxlb_config['service']['delay'].get('format', 'hours')}.")
             time.sleep(sleep_seconds)
@@ -218,7 +227,9 @@ class Helper:
         """
         logger.debug("Starting: handle_sighup.")
         logger.debug("Got SIGHUP signal. Reloading...")
-        Helper.proxlb_reload = True
+        # Signal-safe flag for config reload
+        RuntimeSignals.reload.set()
+
         logger.debug("Finished: handle_sighup.")
 
     @staticmethod
@@ -235,8 +246,7 @@ class Helper:
         """
         exit_message = "ProxLB has been successfully terminated by user."
         logger.debug(exit_message)
-        print(f"\n {exit_message}")
-        sys.exit(0)
+        RuntimeSignals.stop.set()
 
     @staticmethod
     def get_host_port_from_string(host_object):

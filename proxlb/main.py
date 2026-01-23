@@ -26,7 +26,8 @@ from models.calculations import Calculations
 from models.balancing import Balancing
 from models.pools import Pools
 from models.ha_rules import HaRules
-from utils.helper import Helper
+from utils.helper import Helper, RuntimeSignals, ProxLBStop, ProxLBConfigError
+import sys
 
 
 def main():
@@ -61,57 +62,77 @@ def main():
     # Overwrite password after creating the API object
     proxlb_config["proxmox_api"]["pass"] = "********"
 
-    while True:
+    running = True
 
-        # Validate if reload signal was sent during runtime
-        # and reload the ProxLB configuration and adjust log level
-        if Helper.proxlb_reload:
-            logger.info("Reloading ProxLB configuration.")
-            proxlb_config = config_parser.get_config()
-            logger.set_log_level(proxlb_config.get('service', {}).get('log_level', 'INFO'))
-            Helper.proxlb_reload = False
+    while running:
+        # -------- STOP SIGNAL --------
+        if RuntimeSignals.stop.is_set():
+            logger.info("Stop signal received, shutting down.")
+            break
 
-        # Get all required objects from the Proxmox cluster
-        meta = {"meta": proxlb_config}
-        nodes = Nodes.get_nodes(proxmox_api, proxlb_config)
-        meta = Features.validate_any_non_pve9_node(meta, nodes)
-        pools = Pools.get_pools(proxmox_api)
-        ha_rules = HaRules.get_ha_rules(proxmox_api, meta)
-        guests = Guests.get_guests(proxmox_api, pools, ha_rules, nodes, meta, proxlb_config)
-        groups = Groups.get_groups(guests, nodes)
+        try:
+            # Validate if reload signal was sent during runtime
+            # and reload the ProxLB configuration and adjust log level
+            if RuntimeSignals.reload.is_set():
+                logger.info("Reloading ProxLB configuration.")
+                proxlb_config = config_parser.get_config()
+                logger.set_log_level(proxlb_config.get('service', {}).get('log_level', 'INFO'))
+                RuntimeSignals.reload.clear()
 
-        # Merge obtained objects from the Proxmox cluster for further usage
-        proxlb_data = {**meta, **nodes, **guests, **pools, **ha_rules, **groups}
-        Helper.log_node_metrics(proxlb_data)
 
-        # Validate usable features by PVE versions
-        Features.validate_available_features(proxlb_data)
+            # Get all required objects from the Proxmox cluster
+            meta = {"meta": proxlb_config}
+            nodes = Nodes.get_nodes(proxmox_api, proxlb_config)
+            meta = Features.validate_any_non_pve9_node(meta, nodes)
+            pools = Pools.get_pools(proxmox_api)
+            ha_rules = HaRules.get_ha_rules(proxmox_api, meta)
+            guests = Guests.get_guests(proxmox_api, pools, ha_rules, nodes, meta, proxlb_config)
+            groups = Groups.get_groups(guests, nodes)
 
-        # Update the initial node resource assignments
-        # by the previously created groups.
-        Calculations.set_node_assignments(proxlb_data)
-        Helper.log_node_metrics(proxlb_data, init=False)
-        Calculations.set_node_hot(proxlb_data)
-        Calculations.set_guest_hot(proxlb_data)
-        Calculations.get_most_free_node(proxlb_data, cli_args.best_node)
-        Calculations.validate_affinity_map(proxlb_data)
-        Calculations.relocate_guests_on_maintenance_nodes(proxlb_data)
-        Calculations.get_balanciness(proxlb_data)
-        Calculations.relocate_guests(proxlb_data)
-        Helper.log_node_metrics(proxlb_data, init=False)
+            # Merge obtained objects from the Proxmox cluster for further usage
+            proxlb_data = {**meta, **nodes, **guests, **pools, **ha_rules, **groups}
+            Helper.log_node_metrics(proxlb_data)
 
-        # Perform balancing actions via Proxmox API
-        if proxlb_data["meta"]["balancing"].get("enable", False):
-            if not cli_args.dry_run:
-                Balancing(proxmox_api, proxlb_data)
+            # Validate usable features by PVE versions
+            Features.validate_available_features(proxlb_data)
 
-        # Validate if the JSON output should be
-        # printed to stdout
-        Helper.print_json(proxlb_data, cli_args.json)
-        # Validate daemon mode
-        Helper.get_daemon_mode(proxlb_config)
+            # Update the initial node resource assignments
+            # by the previously created groups.
+            Calculations.set_node_assignments(proxlb_data)
+            Helper.log_node_metrics(proxlb_data, init=False)
+            Calculations.set_node_hot(proxlb_data)
+            Calculations.set_guest_hot(proxlb_data)
+            Calculations.get_most_free_node(proxlb_data, cli_args.best_node)
+            Calculations.validate_affinity_map(proxlb_data)
+            Calculations.relocate_guests_on_maintenance_nodes(proxlb_data)
+            Calculations.get_balanciness(proxlb_data)
+            Calculations.relocate_guests(proxlb_data)
+            Helper.log_node_metrics(proxlb_data, init=False)
 
-        logger.debug(f"Finished: __main__")
+            # Perform balancing actions via Proxmox API
+            if proxlb_data["meta"]["balancing"].get("enable", False):
+                if not cli_args.dry_run:
+                    Balancing(proxmox_api, proxlb_data)
+
+            # Validate if the JSON output should be
+            # printed to stdout
+            Helper.print_json(proxlb_data, cli_args.json)
+            # Validate daemon mode
+            sleep_seconds = Helper.get_daemon_mode(proxlb_config)
+            RuntimeSignals.stop.wait(timeout=sleep_seconds)
+
+        except ProxLBStop:
+            running = False
+
+        except ProxLBConfigError as e:
+            logger.error(f"Configuration error: {e}")
+            sys.exit(2)
+
+        except Exception:
+            logger.exception("Unhandled exception")
+            sys.exit(3)
+
+    logger.debug(f"Finished: __main__")
 
 
 if __name__ == "__main__":
