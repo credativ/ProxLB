@@ -22,7 +22,7 @@ jobs:
     - name: Install Build Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y debhelper dh-make devscripts git-buildpackage build-essential
+        sudo apt-get install -y debhelper dh-make devscripts git-buildpackage build-essential dh-python python3-all
 
     - name: Configure Git for GBP
       run: |
