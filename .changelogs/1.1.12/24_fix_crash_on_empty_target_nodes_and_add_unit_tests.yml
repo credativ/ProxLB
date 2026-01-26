@@ -1,0 +1,2 @@
+fixed:
+  - Fix empty list of possible target nodes for balancing resulting in a Python KeyError (@archandha). [#24]
