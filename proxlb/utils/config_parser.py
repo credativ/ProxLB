@@ -48,7 +48,7 @@ class ConfigParser:
         self.config_path = self.test_config_path(config_path)
         logger.debug("Finished: ConfigParser.")
 
-    def test_config_path(self, config_path: str) -> None:
+    def test_config_path(self, config_path: str) -> str:
         """
         Checks if configuration file is present at given config path.
         """
@@ -87,6 +87,9 @@ class ConfigParser:
         try:
             with open(self.config_path, "r", encoding="utf-8") as config_file:
                 config_data = yaml.load(config_file, Loader=yaml.FullLoader)
+            assert isinstance(config_data, dict), "config_data is not a dict"
+            for key in config_data.keys():
+                assert isinstance(key, str), f"config_data key {key} is not a str"
             return config_data
         except yaml.YAMLError as exception_error:
             print(f"Error loading YAML file: {exception_error}")

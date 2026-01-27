@@ -57,7 +57,7 @@ class Groups:
                               is defined to be in maintenance.
         """
         logger.debug("Starting: get_groups.")
-        groups = {'groups': {'affinity': {}, 'anti_affinity': {}, 'maintenance': []}}
+        groups: dict[str, Any] = {'groups': {'affinity': {}, 'anti_affinity': {}, 'maintenance': []}}
 
         for guest_name, guest_meta in guests["guests"].items():
             # Create affinity grouping
