@@ -12,6 +12,7 @@ from typing import Dict, Any, Optional
 from utils.logger import SystemdLogger
 from utils.proxmox_api import ProxmoxApi
 from utils.config_parser import Config
+from utils.proxlb_data import ProxLbData
 from models.pools import Pools
 from models.ha_rules import HaRules
 from models.tags import Tags
@@ -39,7 +40,7 @@ class Guests:
         """
 
     @staticmethod
-    def get_guests(proxmox_api: ProxmoxApi, pools: Dict[str, Any], ha_rules: Dict[str, Any], nodes: Dict[str, Any], meta: Dict[str, Any], proxlb_config: Config) -> Dict[str, Any]:
+    def get_guests(proxmox_api: ProxmoxApi, pools: Dict[str, Any], ha_rules: Dict[str, Any], nodes: Dict[str, Any], proxlb_config: Config) -> Dict[str, ProxLbData.Guest]:
         """
         Get metrics of all guests in a Proxmox cluster.
 
@@ -59,56 +60,68 @@ class Guests:
             Dict[str, Any]: A dictionary containing metrics and information for all running guests.
         """
         logger.debug("Starting: get_guests.")
-        guests: dict[str, Dict[str, Any]] = {"guests": {}}
+        guests: Dict[str, ProxLbData.Guest] = {}
 
         # Guest objects are always only in the scope of a node.
         # Therefore, we need to iterate over all nodes to get all guests.
-        for node in nodes['nodes'].keys():
+        for node in nodes.keys():
 
             # VM objects: Iterate over all VMs on the current node by the qemu API object.
             # Unlike the nodes we need to keep them even when being ignored to create proper
             # resource metrics for rebalancing to ensure that we do not overprovisiong the node.
             for guest in proxmox_api.nodes(node).qemu.get():
                 if guest['status'] == 'running':
-                    guests['guests'][guest['name']] = {}
-                    guests['guests'][guest['name']]['name'] = guest['name']
-                    guests['guests'][guest['name']]['cpu_total'] = int(guest['cpus'])
-                    guests['guests'][guest['name']]['cpu_used'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', None)
-                    guests['guests'][guest['name']]['cpu_pressure_some_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'some')
-                    guests['guests'][guest['name']]['cpu_pressure_full_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'full')
-                    guests['guests'][guest['name']]['cpu_pressure_some_spikes_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'some', spikes=True)
-                    guests['guests'][guest['name']]['cpu_pressure_full_spikes_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'full', spikes=True)
-                    guests['guests'][guest['name']]['cpu_pressure_hot'] = False
-                    guests['guests'][guest['name']]['memory_total'] = guest['maxmem']
-                    guests['guests'][guest['name']]['memory_used'] = guest['mem']
-                    guests['guests'][guest['name']]['memory_pressure_some_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'some')
-                    guests['guests'][guest['name']]['memory_pressure_full_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'full')
-                    guests['guests'][guest['name']]['memory_pressure_some_spikes_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'some', spikes=True)
-                    guests['guests'][guest['name']]['memory_pressure_full_spikes_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'full', spikes=True)
-                    guests['guests'][guest['name']]['memory_pressure_hot'] = False
-                    guests['guests'][guest['name']]['disk_total'] = guest['maxdisk']
-                    guests['guests'][guest['name']]['disk_used'] = guest['disk']
-                    guests['guests'][guest['name']]['disk_pressure_some_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'some')
-                    guests['guests'][guest['name']]['disk_pressure_full_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'full')
-                    guests['guests'][guest['name']]['disk_pressure_some_spikes_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'some', spikes=True)
-                    guests['guests'][guest['name']]['disk_pressure_full_spikes_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'full', spikes=True)
-                    guests['guests'][guest['name']]['disk_pressure_hot'] = False
-                    guests['guests'][guest['name']]['id'] = guest['vmid']
-                    guests['guests'][guest['name']]['node_current'] = node
-                    guests['guests'][guest['name']]['node_target'] = node
-                    guests['guests'][guest['name']]['processed'] = False
-                    guests['guests'][guest['name']]['pressure_hot'] = False
-                    guests['guests'][guest['name']]['tags'] = Tags.get_tags_from_guests(proxmox_api, node, guest['vmid'], 'vm')
-                    guests['guests'][guest['name']]['pools'] = Pools.get_pools_for_guest(guest['name'], pools)
-                    guests['guests'][guest['name']]['ha_rules'] = HaRules.get_ha_rules_for_guest(guest['name'], ha_rules, guest['vmid'])
-                    guests['guests'][guest['name']]['affinity_groups'] = Tags.get_affinity_groups(guests['guests'][guest['name']]['tags'], guests['guests'][guest['name']]['pools'], guests['guests'][guest['name']]['ha_rules'], proxlb_config)
-                    guests['guests'][guest['name']]['anti_affinity_groups'] = Tags.get_anti_affinity_groups(guests['guests'][guest['name']]['tags'], guests['guests'][guest['name']]['pools'], guests['guests'][guest['name']]['ha_rules'], proxlb_config)
-                    guests['guests'][guest['name']]['ignore'] = Tags.get_ignore(guests['guests'][guest['name']]['tags'])
-                    guests['guests'][guest['name']]['node_relationships'] = Tags.get_node_relationships(guests['guests'][guest['name']]['tags'], nodes, guests['guests'][guest['name']]['pools'], guests['guests'][guest['name']]['ha_rules'], proxlb_config)
-                    guests['guests'][guest['name']]['node_relationships_strict'] = Pools.get_pool_node_affinity_strictness(proxlb_config, guests['guests'][guest['name']]['pools'])
-                    guests['guests'][guest['name']]['type'] = 'vm'
 
-                    logger.debug(f"Resources of Guest {guest['name']} (type VM) added: {guests['guests'][guest['name']]}")
+                    guest_tags = Tags.get_tags_from_guests(proxmox_api, node, guest['vmid'], 'vm')
+                    guest_pools = Pools.get_pools_for_guest(guest['name'], pools)
+                    guest_ha_rules = HaRules.get_ha_rules_for_guest(guest['name'], ha_rules, guest['vmid'])
+
+                    guests[guest['name']] = ProxLbData.Guest(
+                        name = guest['name'],
+                        cpu=ProxLbData.Guest.Metric(
+                            total = int(guest['cpus']),
+                            used = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', None),
+                            pressure_some_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'some'),
+                            pressure_full_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'full'),
+                            pressure_some_spikes_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'some', spikes=True),
+                            pressure_full_spikes_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'full', spikes=True),
+                            pressure_hot = False,
+                        ),
+                        disk=ProxLbData.Guest.Metric(
+                            total = guest['maxdisk'],
+                            used = guest['disk'],
+                            pressure_some_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'some'),
+                            pressure_full_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'full'),
+                            pressure_some_spikes_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'some', spikes=True),
+                            pressure_full_spikes_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'full', spikes=True),
+                            pressure_hot = False,
+                        ),
+                        memory=ProxLbData.Guest.Metric(
+                            total = guest['maxmem'],
+                            used = guest['mem'],
+                            pressure_some_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'some'),
+                            pressure_full_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'full'),
+                            pressure_some_spikes_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'some', spikes=True),
+                            pressure_full_spikes_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'full', spikes=True),
+                            pressure_hot = False,
+                        ),
+                        id = guest['vmid'],
+                        node_current = node,
+                        node_target = node,
+                        processed = False,
+                        pressure_hot = False,
+                        tags = guest_tags,
+                        pools = guest_pools,
+                        ha_rules = guest_ha_rules,
+                        affinity_groups = Tags.get_affinity_groups(guest_tags, guest_pools, guest_ha_rules, proxlb_config),
+                        anti_affinity_groups = Tags.get_anti_affinity_groups(guest_tags, guest_pools, guest_ha_rules, proxlb_config),
+                        ignore = Tags.get_ignore(guest_tags),
+                        node_relationships = Tags.get_node_relationships(guest_tags, nodes, guest_pools, guest_ha_rules, proxlb_config),
+                        node_relationships_strict = Pools.get_pool_node_affinity_strictness(proxlb_config, guest_pools),
+                        type = 'vm',
+                    )
+
+                    logger.debug(f"Resources of Guest {guest['name']} (type VM) added: {guests[guest['name']]}")
                 else:
                     logger.debug(f'Metric for VM {guest["name"]} ignored because VM is not running.')
 
@@ -117,45 +130,57 @@ class Guests:
             # resource metrics for rebalancing to ensure that we do not overprovisiong the node.
             for guest in proxmox_api.nodes(node).lxc.get():
                 if guest['status'] == 'running':
-                    guests['guests'][guest['name']] = {}
-                    guests['guests'][guest['name']]['name'] = guest['name']
-                    guests['guests'][guest['name']]['cpu_total'] = int(guest['cpus'])
-                    guests['guests'][guest['name']]['cpu_used'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', None)
-                    guests['guests'][guest['name']]['cpu_pressure_some_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'some')
-                    guests['guests'][guest['name']]['cpu_pressure_full_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'full')
-                    guests['guests'][guest['name']]['cpu_pressure_some_spikes_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'some', spikes=True)
-                    guests['guests'][guest['name']]['cpu_pressure_full_spikes_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'full', spikes=True)
-                    guests['guests'][guest['name']]['cpu_pressure_hot'] = False
-                    guests['guests'][guest['name']]['memory_total'] = guest['maxmem']
-                    guests['guests'][guest['name']]['memory_used'] = guest['mem']
-                    guests['guests'][guest['name']]['memory_pressure_some_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'some')
-                    guests['guests'][guest['name']]['memory_pressure_full_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'full')
-                    guests['guests'][guest['name']]['memory_pressure_some_spikes_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'some', spikes=True)
-                    guests['guests'][guest['name']]['memory_pressure_full_spikes_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'full', spikes=True)
-                    guests['guests'][guest['name']]['memory_pressure_hot'] = False
-                    guests['guests'][guest['name']]['disk_total'] = guest['maxdisk']
-                    guests['guests'][guest['name']]['disk_used'] = guest['disk']
-                    guests['guests'][guest['name']]['disk_pressure_some_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'some')
-                    guests['guests'][guest['name']]['disk_pressure_full_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'full')
-                    guests['guests'][guest['name']]['disk_pressure_some_spikes_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'some', spikes=True)
-                    guests['guests'][guest['name']]['disk_pressure_full_spikes_percent'] = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'full', spikes=True)
-                    guests['guests'][guest['name']]['disk_pressure_hot'] = False
-                    guests['guests'][guest['name']]['id'] = guest['vmid']
-                    guests['guests'][guest['name']]['node_current'] = node
-                    guests['guests'][guest['name']]['node_target'] = node
-                    guests['guests'][guest['name']]['processed'] = False
-                    guests['guests'][guest['name']]['pressure_hot'] = False
-                    guests['guests'][guest['name']]['tags'] = Tags.get_tags_from_guests(proxmox_api, node, guest['vmid'], 'ct')
-                    guests['guests'][guest['name']]['pools'] = Pools.get_pools_for_guest(guest['name'], pools)
-                    guests['guests'][guest['name']]['ha_rules'] = HaRules.get_ha_rules_for_guest(guest['name'], ha_rules, guest['vmid'])
-                    guests['guests'][guest['name']]['affinity_groups'] = Tags.get_affinity_groups(guests['guests'][guest['name']]['tags'], guests['guests'][guest['name']]['pools'], guests['guests'][guest['name']]['ha_rules'], proxlb_config)
-                    guests['guests'][guest['name']]['anti_affinity_groups'] = Tags.get_anti_affinity_groups(guests['guests'][guest['name']]['tags'], guests['guests'][guest['name']]['pools'], guests['guests'][guest['name']]['ha_rules'], proxlb_config)
-                    guests['guests'][guest['name']]['ignore'] = Tags.get_ignore(guests['guests'][guest['name']]['tags'])
-                    guests['guests'][guest['name']]['node_relationships'] = Tags.get_node_relationships(guests['guests'][guest['name']]['tags'], nodes, guests['guests'][guest['name']]['pools'], guests['guests'][guest['name']]['ha_rules'], proxlb_config)
-                    guests['guests'][guest['name']]['node_relationships_strict'] = Pools.get_pool_node_affinity_strictness(proxlb_config, guests['guests'][guest['name']]['pools'])
-                    guests['guests'][guest['name']]['type'] = 'ct'
 
-                    logger.debug(f"Resources of Guest {guest['name']} (type CT) added: {guests['guests'][guest['name']]}")
+                    guest_tags = Tags.get_tags_from_guests(proxmox_api, node, guest['vmid'], 'ct')
+                    guest_pools = Pools.get_pools_for_guest(guest['name'], pools)
+                    guest_ha_rules = HaRules.get_ha_rules_for_guest(guest['name'], ha_rules, guest['vmid'])
+
+                    guests[guest['name']] = ProxLbData.Guest(
+                        cpu=ProxLbData.Guest.Metric(
+                            total = int(guest['cpus']),
+                            used = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', None),
+                            pressure_some_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'some'),
+                            pressure_full_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'full'),
+                            pressure_some_spikes_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'some', spikes=True),
+                            pressure_full_spikes_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'full', spikes=True),
+                            pressure_hot = False,
+                        ),
+                        disk=ProxLbData.Guest.Metric(
+                            total = guest['maxdisk'],
+                            used = guest['disk'],
+                            pressure_some_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'some'),
+                            pressure_full_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'full'),
+                            pressure_some_spikes_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'some', spikes=True),
+                            pressure_full_spikes_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'full', spikes=True),
+                            pressure_hot = False,
+                        ),
+                        memory=ProxLbData.Guest.Metric(
+                            total = guest['maxmem'],
+                            used = guest['mem'],
+                            pressure_some_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'some'),
+                            pressure_full_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'full'),
+                            pressure_some_spikes_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'some', spikes=True),
+                            pressure_full_spikes_percent = Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'full', spikes=True),
+                            pressure_hot = False,
+                        ),
+                        name = guest['name'],
+                        id = guest['vmid'],
+                        node_current = node,
+                        node_target = node,
+                        processed = False,
+                        pressure_hot = False,
+                        tags = guest_tags,
+                        pools = guest_pools,
+                        ha_rules = guest_ha_rules,
+                        affinity_groups = Tags.get_affinity_groups(guest_tags, guest_pools, guest_ha_rules, proxlb_config),
+                        anti_affinity_groups = Tags.get_anti_affinity_groups(guest_tags, guest_pools, guest_ha_rules, proxlb_config),
+                        ignore = Tags.get_ignore(guest_tags),
+                        node_relationships = Tags.get_node_relationships(guest_tags, nodes, guest_pools, guest_ha_rules, proxlb_config),
+                        node_relationships_strict = Pools.get_pool_node_affinity_strictness(proxlb_config, guest_pools),
+                        type = 'ct',
+                    )
+
+                    logger.debug(f"Resources of Guest {guest['name']} (type CT) added: {guests[guest['name']]}")
                 else:
                     logger.debug(f'Metric for CT {guest["name"]} ignored because CT is not running.')
 

@@ -26,6 +26,7 @@ from typing import Dict, Any, Union
 from utils.config_parser import Config, ResourceType
 from utils.logger import SystemdLogger
 from utils.helper import Helper
+from utils.proxlb_data import ProxLbData
 from utils.proxmox_api import ProxmoxApi
 
 logger = SystemdLogger()
@@ -42,7 +43,7 @@ class Nodes:
         """
 
     @staticmethod
-    def get_nodes(proxmox_api: ProxmoxApi, proxlb_config: Config) -> Dict[str, Any]:
+    def get_nodes(proxmox_api: ProxmoxApi, proxlb_config: Config) -> Dict[str, ProxLbData.Node]:
         """
         Get metrics of all nodes in a Proxmox cluster.
 
@@ -58,56 +59,71 @@ class Nodes:
             Dict[str, Any]: A dictionary containing metrics and information for all running nodes.
         """
         logger.debug("Starting: get_nodes.")
-        nodes: dict[str, Any] = {"nodes": {}}
+        nodes: dict[str, ProxLbData.Node] = {}
 
         for node in proxmox_api.nodes.get():
             # Ignoring a node results into ignoring all placed guests on the ignored node!
             if node["status"] == "online" and not Nodes.set_node_ignore(proxlb_config, node["node"]):
-                nodes["nodes"][node["node"]] = {}
-                nodes["nodes"][node["node"]]["name"] = node["node"]
-                nodes["nodes"][node["node"]]["pve_version"] = Nodes.get_node_pve_version(proxmox_api, node["node"])
-                nodes["nodes"][node["node"]]["pressure_hot"] = False
-                nodes["nodes"][node["node"]]["maintenance"] = False
-                nodes["nodes"][node["node"]]["cpu_total"] = node["maxcpu"]
-                nodes["nodes"][node["node"]]["cpu_assigned"] = 0
-                nodes["nodes"][node["node"]]["cpu_used"] = node["cpu"] * node["maxcpu"]
-                nodes["nodes"][node["node"]]["cpu_free"] = (node["maxcpu"]) - (node["cpu"] * node["maxcpu"])
-                nodes["nodes"][node["node"]]["cpu_assigned_percent"] = nodes["nodes"][node["node"]]["cpu_assigned"] / nodes["nodes"][node["node"]]["cpu_total"] * 100
-                nodes["nodes"][node["node"]]["cpu_free_percent"] = nodes["nodes"][node["node"]]["cpu_free"] / node["maxcpu"] * 100
-                nodes["nodes"][node["node"]]["cpu_used_percent"] = nodes["nodes"][node["node"]]["cpu_used"] / node["maxcpu"] * 100
-                nodes["nodes"][node["node"]]["cpu_pressure_some_percent"] = Nodes.get_node_rrd_data(proxmox_api, node["node"], "cpu", "some")
-                nodes["nodes"][node["node"]]["cpu_pressure_full_percent"] = Nodes.get_node_rrd_data(proxmox_api, node["node"], "cpu", "full")
-                nodes["nodes"][node["node"]]["cpu_pressure_some_spikes_percent"] = Nodes.get_node_rrd_data(proxmox_api, node["node"], "cpu", "some", spikes=True)
-                nodes["nodes"][node["node"]]["cpu_pressure_full_spikes_percent"] = Nodes.get_node_rrd_data(proxmox_api, node["node"], "cpu", "full", spikes=True)
-                nodes["nodes"][node["node"]]["cpu_pressure_hot"] = False
-                nodes["nodes"][node["node"]]["memory_total"] = Nodes.set_node_resource_reservation(node["node"], node["maxmem"], proxlb_config, "memory")
-                nodes["nodes"][node["node"]]["memory_assigned"] = 0
-                nodes["nodes"][node["node"]]["memory_used"] = node["mem"]
-                nodes["nodes"][node["node"]]["memory_free"] = node["maxmem"] - node["mem"]
-                nodes["nodes"][node["node"]]["memory_assigned_percent"] = nodes["nodes"][node["node"]]["memory_assigned"] / nodes["nodes"][node["node"]]["memory_total"] * 100
-                nodes["nodes"][node["node"]]["memory_free_percent"] = nodes["nodes"][node["node"]]["memory_free"] / node["maxmem"] * 100
-                nodes["nodes"][node["node"]]["memory_used_percent"] = nodes["nodes"][node["node"]]["memory_used"] / node["maxmem"] * 100
-                nodes["nodes"][node["node"]]["memory_pressure_some_percent"] = Nodes.get_node_rrd_data(proxmox_api, node["node"], "memory", "some")
-                nodes["nodes"][node["node"]]["memory_pressure_full_percent"] = Nodes.get_node_rrd_data(proxmox_api, node["node"], "memory", "full")
-                nodes["nodes"][node["node"]]["memory_pressure_some_spikes_percent"] = Nodes.get_node_rrd_data(proxmox_api, node["node"], "memory", "some", spikes=True)
-                nodes["nodes"][node["node"]]["memory_pressure_full_spikes_percent"] = Nodes.get_node_rrd_data(proxmox_api, node["node"], "memory", "full", spikes=True)
-                nodes["nodes"][node["node"]]["memory_pressure_hot"] = False
-                nodes["nodes"][node["node"]]["disk_total"] = node["maxdisk"]
-                nodes["nodes"][node["node"]]["disk_assigned"] = 0
-                nodes["nodes"][node["node"]]["disk_used"] = node["disk"]
-                nodes["nodes"][node["node"]]["disk_free"] = node["maxdisk"] - node["disk"]
-                nodes["nodes"][node["node"]]["disk_assigned_percent"] = nodes["nodes"][node["node"]]["disk_assigned"] / nodes["nodes"][node["node"]]["disk_total"] * 100
-                nodes["nodes"][node["node"]]["disk_free_percent"] = nodes["nodes"][node["node"]]["disk_free"] / node["maxdisk"] * 100
-                nodes["nodes"][node["node"]]["disk_used_percent"] = nodes["nodes"][node["node"]]["disk_used"] / node["maxdisk"] * 100
-                nodes["nodes"][node["node"]]["disk_pressure_some_percent"] = Nodes.get_node_rrd_data(proxmox_api, node["node"], "disk", "some")
-                nodes["nodes"][node["node"]]["disk_pressure_full_percent"] = Nodes.get_node_rrd_data(proxmox_api, node["node"], "disk", "full")
-                nodes["nodes"][node["node"]]["disk_pressure_some_spikes_percent"] = Nodes.get_node_rrd_data(proxmox_api, node["node"], "disk", "some", spikes=True)
-                nodes["nodes"][node["node"]]["disk_pressure_full_spikes_percent"] = Nodes.get_node_rrd_data(proxmox_api, node["node"], "disk", "full", spikes=True)
-                nodes["nodes"][node["node"]]["disk_pressure_hot"] = False
+
+                cpu_used = node["cpu"] * node["maxcpu"]
+                cpu_free = (node["maxcpu"]) - (node["cpu"] * node["maxcpu"])
+                disk_free = node["maxdisk"] - node["disk"]
+                disk_used = node["disk"]
+                memory_used = node["mem"]
+                memory_free = node["maxmem"] - node["mem"]
+
+                nodes[node["node"]] = ProxLbData.Node(
+                    name = node["node"],
+                    pve_version = Nodes.get_node_pve_version(proxmox_api, node["node"]),
+                    pressure_hot = False,
+                    maintenance = False,
+                    cpu=ProxLbData.Node.Metric(
+                        total = node["maxcpu"],
+                        assigned = 0,
+                        used = cpu_used,
+                        free = cpu_free,
+                        assigned_percent = 0,
+                        free_percent = cpu_free / node["maxcpu"] * 100,
+                        used_percent = cpu_used / node["maxcpu"] * 100,
+                        pressure_some_percent = Nodes.get_node_rrd_data(proxmox_api, node["node"], "cpu", "some"),
+                        pressure_full_percent = Nodes.get_node_rrd_data(proxmox_api, node["node"], "cpu", "full"),
+                        pressure_some_spikes_percent = Nodes.get_node_rrd_data(proxmox_api, node["node"], "cpu", "some", spikes=True),
+                        pressure_full_spikes_percent = Nodes.get_node_rrd_data(proxmox_api, node["node"], "cpu", "full", spikes=True),
+                        pressure_hot = False,
+                    ),
+                    disk=ProxLbData.Node.Metric(
+                        total = node["maxdisk"],
+                        assigned = 0,
+                        used = node["disk"],
+                        free = disk_free,
+                        assigned_percent = 0,
+                        free_percent = disk_free / node["maxdisk"] * 100,
+                        used_percent = disk_used / node["maxdisk"] * 100,
+                        pressure_some_percent = Nodes.get_node_rrd_data(proxmox_api, node["node"], "disk", "some"),
+                        pressure_full_percent = Nodes.get_node_rrd_data(proxmox_api, node["node"], "disk", "full"),
+                        pressure_some_spikes_percent = Nodes.get_node_rrd_data(proxmox_api, node["node"], "disk", "some", spikes=True),
+                        pressure_full_spikes_percent = Nodes.get_node_rrd_data(proxmox_api, node["node"], "disk", "full", spikes=True),
+                        pressure_hot = False,
+                    ),
+                    memory=ProxLbData.Node.Metric(
+                        total = Nodes.set_node_resource_reservation(node["node"], node["maxmem"], proxlb_config, "memory"),
+                        assigned = 0,
+                        used = memory_used,
+                        free = memory_free,
+                        assigned_percent = 0,
+                        free_percent = memory_free / node["maxmem"] * 100,
+                        used_percent = memory_used / node["maxmem"] * 100,
+                        pressure_some_percent = Nodes.get_node_rrd_data(proxmox_api, node["node"], "memory", "some"),
+                        pressure_full_percent = Nodes.get_node_rrd_data(proxmox_api, node["node"], "memory", "full"),
+                        pressure_some_spikes_percent = Nodes.get_node_rrd_data(proxmox_api, node["node"], "memory", "some", spikes=True),
+                        pressure_full_spikes_percent = Nodes.get_node_rrd_data(proxmox_api, node["node"], "memory", "full", spikes=True),
+                        pressure_hot = False,
+                    ),
+                )
 
                 # Evaluate if node should be set to maintenance mode
                 if Nodes.set_node_maintenance(proxmox_api, proxlb_config, node["node"]):
-                    nodes["nodes"][node["node"]]["maintenance"] = True
+                    nodes[node["node"]].maintenance = True
 
         logger.debug(f"Node metrics collected: {nodes}")
         logger.debug("Finished: get_nodes.")
@@ -260,7 +276,7 @@ class Nodes:
         return ret
 
     @staticmethod
-    def set_node_resource_reservation(node_name: str, resource_value: int, proxlb_config: Config, resource_type: ResourceType) -> float:
+    def set_node_resource_reservation(node_name: str, resource_value: int, proxlb_config: Config, resource_type: ResourceType) -> int:
         """
         Check if there is a configured resource reservation for the current node and apply it as needed.
         Checks for a node specific config first, then if there is any configured default and if neither then nothing is reserved.
@@ -278,8 +294,8 @@ class Nodes:
         logger.debug(f"Starting: apply_resource_reservation")
 
         if reserve_cfg := proxlb_config.balancing.node_resource_reserve:
-            node_resource_reservation: float = reserve_cfg.get(node_name, {}).get(resource_type, 0)
-            default_resource_reservation: float = reserve_cfg.get("defaults", {}).get(resource_type, 0)
+            node_resource_reservation = reserve_cfg.get(node_name, {}).get(resource_type, 0)
+            default_resource_reservation = reserve_cfg.get("defaults", {}).get(resource_type, 0)
         else:
             node_resource_reservation = 0
             default_resource_reservation = 0

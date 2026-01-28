@@ -17,6 +17,7 @@ import time
 import utils.version
 from utils.config_parser import Config
 from utils.logger import SystemdLogger
+from utils.proxlb_data import ProxLbData
 from typing import Dict, Any, Tuple, Optional
 from types import FrameType
 
@@ -68,7 +69,7 @@ class Helper:
         return str(generated_uuid)
 
     @staticmethod
-    def log_node_metrics(proxlb_data: Dict[str, Any], init: bool = True) -> None:
+    def log_node_metrics(proxlb_data: ProxLbData, init: bool = True) -> None:
         """
         Logs the memory, CPU, and disk usage metrics of nodes in the provided proxlb_data dictionary.
 
@@ -81,15 +82,17 @@ class Helper:
                         (True) or update the 'after' statistics (False). Default is True.
         """
         logger.debug("Starting: log_node_metrics.")
-        nodes_usage_memory = " | ".join([f"{key}: {value['memory_used_percent']:.2f}%" for key, value in proxlb_data["nodes"].items()])
-        nodes_assigned_memory = " | ".join([f"{key}: {value['memory_assigned_percent']:.2f}%" for key, value in proxlb_data["nodes"].items()])
-        nodes_usage_cpu = "  | ".join([f"{key}: {value['cpu_used_percent']:.2f}%" for key, value in proxlb_data["nodes"].items()])
-        nodes_usage_disk = " | ".join([f"{key}: {value['disk_used_percent']:.2f}%" for key, value in proxlb_data["nodes"].items()])
+        nodes_usage_memory = " | ".join([f"{key}: {value.memory.used_percent:.2f}%" for key, value in proxlb_data.nodes.items()])
+        nodes_assigned_memory = " | ".join([f"{key}: {value.memory.assigned_percent:.2f}%" for key, value in proxlb_data.nodes.items()])
+        nodes_usage_cpu = "  | ".join([f"{key}: {value.cpu.used_percent:.2f}%" for key, value in proxlb_data.nodes.items()])
+        nodes_usage_disk = " | ".join([f"{key}: {value.disk.used_percent:.2f}%" for key, value in proxlb_data.nodes.items()])
 
         if init:
-            proxlb_data["meta"]["statistics"] = {"before": {"memory": nodes_usage_memory, "cpu": nodes_usage_cpu, "disk": nodes_usage_disk}, "after": {"memory": "", "cpu": "", "disk": ""}}
+            proxlb_data.meta.statistics = {"before": {"memory": nodes_usage_memory, "cpu": nodes_usage_cpu, "disk": nodes_usage_disk}, "after": {"memory": "", "cpu": "", "disk": ""}}
+        elif proxlb_data.meta.statistics:
+            proxlb_data.meta.statistics["after"] = {"memory": nodes_usage_memory, "cpu": nodes_usage_cpu, "disk": nodes_usage_disk}
         else:
-            proxlb_data["meta"]["statistics"]["after"] = {"memory": nodes_usage_memory, "cpu": nodes_usage_cpu, "disk": nodes_usage_disk}
+            proxlb_data.meta.statistics = {"after": {"memory": nodes_usage_memory, "cpu": nodes_usage_cpu, "disk": nodes_usage_disk}}
 
         logger.debug(f"Nodes usage memory: {nodes_usage_memory}")
         logger.debug(f"Nodes usage memory assigned: {nodes_assigned_memory}")
@@ -159,7 +162,7 @@ class Helper:
         logger.debug("Finished: get_service_delay.")
 
     @staticmethod
-    def print_json(proxlb_config: Dict[str, Any], print_json: bool = False) -> None:
+    def print_json(proxlb_data: ProxLbData, print_json: bool = False) -> None:
         """
         Prints the calculated balancing matrix as a JSON output to stdout.
 
@@ -173,8 +176,9 @@ class Helper:
         if print_json:
             # Create a filtered list by stripping the 'meta' key from the proxlb_config dictionary
             # to make sure that no credentials are leaked.
-            filtered_data = {k: v for k, v in proxlb_config.items() if k != "meta"}
-            print(json.dumps(filtered_data, indent=4))
+            data = proxlb_data.model_dump()
+            del data["meta"]
+            print(json.dumps(data, indent=4))
 
         logger.debug("Finished: print_json.")
 
@@ -277,7 +281,7 @@ class Helper:
         """
         logger.debug("Starting: validate_node_presence.")
 
-        if node in nodes["nodes"].keys():
+        if node in nodes.keys():
             logger.info(f"Node {node} found in cluster. Applying pinning.")
             logger.debug("Finished: validate_node_presence.")
             return True

@@ -16,7 +16,7 @@ import logging
 import signal
 from utils.logger import SystemdLogger
 from utils.cli_parser import CliParser
-from utils.config_parser import ConfigParser
+from utils.config_parser import ConfigParser, Config
 from utils.proxmox_api import ProxmoxApi
 from models.nodes import Nodes
 from models.features import Features
@@ -27,6 +27,7 @@ from models.balancing import Balancing
 from models.pools import Pools
 from models.ha_rules import HaRules
 from utils.helper import Helper
+from utils.proxlb_data import ProxLbData
 
 
 def main() -> None:
@@ -72,16 +73,22 @@ def main() -> None:
             Helper.proxlb_reload = False
 
         # Get all required objects from the Proxmox cluster
-        meta = {"meta": proxlb_config.model_dump()}
         nodes = Nodes.get_nodes(proxmox_api, proxlb_config)
-        meta = Features.validate_any_non_pve9_node(meta, nodes)
+        meta = Features.validate_any_non_pve9_node(proxlb_config, nodes)
         pools = Pools.get_pools(proxmox_api)
         ha_rules = HaRules.get_ha_rules(proxmox_api, meta)
-        guests = Guests.get_guests(proxmox_api, pools, ha_rules, nodes, meta, proxlb_config)
+        guests = Guests.get_guests(proxmox_api, pools, ha_rules, nodes, proxlb_config)
         groups = Groups.get_groups(guests, nodes)
 
         # Merge obtained objects from the Proxmox cluster for further usage
-        proxlb_data = {**meta, **nodes, **guests, **pools, **ha_rules, **groups}
+        proxlb_data = ProxLbData(
+            meta=meta,
+            nodes=nodes,
+            guests=guests,
+            pools=pools,
+            ha_rules=ha_rules,
+            groups=groups,
+        )
         Helper.log_node_metrics(proxlb_data)
 
         # Validate usable features by PVE versions
@@ -101,7 +108,7 @@ def main() -> None:
         Helper.log_node_metrics(proxlb_data, init=False)
 
         # Perform balancing actions via Proxmox API
-        if proxlb_data["meta"]["balancing"].get("enable", False):
+        if proxlb_data.meta.balancing.enable:
             if not cli_args.dry_run:
                 Balancing(proxmox_api, proxlb_data)
 

@@ -67,19 +67,22 @@ class Config(BaseModel):
         balanciness: int = 10
         cpu_threshold: Optional[int] = None
         enable: bool = False
-        enfore_affinity: bool = False
-        enfore_pinning: bool = False
+        enforce_affinity: bool = False
+        enforce_pinning: bool = False
         live: bool = True
         max_job_validation: int = 1800
         memory_threshold: Optional[int] = None
-        method: str = "memory"
+        method: Literal["cpu", "memory"] = "memory"
         mode: Literal["assigned", "psi", "used"] = "used"
-        node_resource_reserve: Optional[dict[str, dict[ResourceType, float]]] = None
+        node_resource_reserve: Optional[dict[str, dict[ResourceType, int]]] = None
         parallel: bool = False
         pools: Optional[dict[str, Pool]] = None
         psi: Optional[Psi] = None
         with_conntrack_state: bool = True
         with_local_disks: bool = True
+
+        def threshold(self, method: Literal["cpu", "memory"]) -> Optional[int]:
+            return self.cpu_threshold if method == "cpu" else self.memory_threshold
 
     class Service(BaseModel):
         class Delay(BaseModel):

@@ -12,6 +12,7 @@ from typing import Dict, Any
 from utils.config_parser import Config
 from utils.logger import SystemdLogger
 from utils.proxmox_api import ProxmoxApi
+from utils.proxlb_data import ProxLbData
 from models.tags import Tags
 import time
 
@@ -39,7 +40,7 @@ class Pools:
         """
 
     @staticmethod
-    def get_pools(proxmox_api: ProxmoxApi) -> Dict[str, Any]:
+    def get_pools(proxmox_api: ProxmoxApi) -> Dict[str, ProxLbData.Pool]:
         """
         Retrieve all pools and their members from a Proxmox cluster.
 
@@ -56,16 +57,14 @@ class Pools:
                     to {"name": <poolid>, "members": [<member_names>...]}.
         """
         logger.debug("Starting: get_pools.")
-        pools: dict[str, Any] = {"pools": {}}
+        pools: dict[str, ProxLbData.Pool] = {}
 
         # Pool objects: iterate over all pools in the cluster.
         # We keep pool members even if their nodes are ignored so resource accounting
         # for rebalancing remains correct and we avoid overprovisioning nodes.
         for pool in proxmox_api.pools.get():
             logger.debug(f"Got pool: {pool['poolid']}")
-            pools['pools'][pool['poolid']] = {}
-            pools['pools'][pool['poolid']]['name'] = pool['poolid']
-            pools['pools'][pool['poolid']]['members'] = []
+            pools[pool['poolid']] = ProxLbData.Pool(name=pool['poolid'])
 
             # Fetch pool details and collect member names
             pool_details = proxmox_api.pools(pool['poolid']).get()
@@ -77,13 +76,13 @@ class Pools:
                     continue
 
                 logger.debug(f"Got member: {member['name']} for pool: {pool['poolid']}")
-                pools['pools'][pool['poolid']]['members'].append(member["name"])
+                pools[pool['poolid']].members.append(member.name)
 
         logger.debug("Finished: get_pools.")
         return pools
 
     @staticmethod
-    def get_pools_for_guest(guest_name: str, pools: Dict[str, Any]) -> list[str]:
+    def get_pools_for_guest(guest_name: str, pools: Dict[str, ProxLbData.Pool]) -> list[str]:
         """
         Return the list of pool names that include the given guest.
 
@@ -97,23 +96,18 @@ class Pools:
             list[str]: Names of pools the guest is a member of (empty list if none).
         """
         logger.debug("Starting: get_pools_for_guests.")
-        guest_pools = []
+        guest_pools: list[str] = []
 
-        for pool in pools.items():
-            for pool_id, pool_data in pool[1].items():
+        for pool_id, pool_data in pools.items():
 
-                if type(pool_data) is dict:
-                    pool_name = pool_data.get("name", "")
-                    pool_name_members = pool_data.get("members", [])
+            pool_name = pool_data.name
 
-                    if guest_name in pool_name_members:
-                        logger.debug(f"Guest: {guest_name} is member of Pool: {pool_name}.")
-                        guest_pools.append(pool_name)
-                    else:
-                        logger.debug(f"Guest: {guest_name} is NOT member of Pool: {pool_name}.")
+            if guest_name in pool_data.members:
+                logger.debug(f"Guest: {guest_name} is member of Pool: {pool_name}.")
+                guest_pools.append(pool_name)
+            else:
+                logger.debug(f"Guest: {guest_name} is NOT member of Pool: {pool_name}.")
 
-                else:
-                    logger.debug(f"Pool data for pool_id {pool_id} is not a dict: {pool_data}")
 
         logger.debug("Finished: get_pools_for_guests.")
         return guest_pools

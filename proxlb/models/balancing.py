@@ -15,6 +15,7 @@ import time
 from itertools import islice
 from utils.logger import SystemdLogger
 from utils.proxmox_api import ProxmoxApi
+from utils.proxlb_data import ProxLbData
 from typing import Dict, Any, Generator, Optional
 
 logger = SystemdLogger()
@@ -45,7 +46,7 @@ class Balancing:
         is reached. Returns True if the job completed successfully, False otherwise.
     """
 
-    def __init__(self, proxmox_api: ProxmoxApi, proxlb_data: Dict[str, Any]) -> None:
+    def __init__(self, proxmox_api: ProxmoxApi, proxlb_data: ProxLbData) -> None:
         """
         Initializes the Balancing class with the provided ProxLB data.
 
@@ -69,14 +70,14 @@ class Balancing:
 
         # Validate if balancing should be performed in parallel or sequentially.
         # If parallel balancing is enabled, set the number of parallel jobs.
-        parallel_jobs = proxlb_data["meta"]["balancing"].get("parallel_jobs", 5)
-        if not proxlb_data["meta"]["balancing"].get("parallel", False):
+        parallel_jobs = proxlb_data.meta.balancing.parallel_jobs
+        if not proxlb_data.meta.balancing.parallel:
             parallel_jobs = 1
             logger.debug("Balancing: Parallel balancing is disabled. Running sequentially.")
         else:
             logger.debug(f"Balancing: Parallel balancing is enabled. Running with {parallel_jobs} parallel jobs.")
 
-        for chunk in chunk_dict(proxlb_data["guests"], parallel_jobs):
+        for chunk in chunk_dict(proxlb_data.guests, parallel_jobs):
             jobs_to_wait = []
 
             for guest_name, guest_meta in chunk.items():
@@ -91,7 +92,7 @@ class Balancing:
 
                         # VM Balancing
                         if guest_meta["type"] == "vm":
-                            if 'vm' in proxlb_data["meta"]["balancing"].get("balance_types", []):
+                            if 'vm' in proxlb_data.meta.balancing.balance_types:
                                 logger.debug(f"Balancing: Balancing for guest {guest_name} of type VM started.")
                                 job_id = self.exec_rebalancing_vm(proxmox_api, proxlb_data, guest_name)
                             else:
@@ -101,7 +102,7 @@ class Balancing:
 
                         # CT Balancing
                         elif guest_meta["type"] == "ct":
-                            if 'ct' in proxlb_data["meta"]["balancing"].get("balance_types", []):
+                            if 'ct' in proxlb_data.meta.balancing.balance_types:
                                 logger.debug(f"Balancing: Balancing for guest {guest_name} of type CT started.")
                                 job_id = self.exec_rebalancing_ct(proxmox_api, proxlb_data, guest_name)
                             else:
@@ -126,7 +127,7 @@ class Balancing:
                 if job_id:
                     self.get_rebalancing_job_status(proxmox_api, proxlb_data, guest_name, node, job_id)
 
-    def exec_rebalancing_vm(self, proxmox_api: ProxmoxApi, proxlb_data: Dict[str, Any], guest_name: str) -> Optional[int]:
+    def exec_rebalancing_vm(self, proxmox_api: ProxmoxApi, proxlb_data: ProxLbData, guest_name: str) -> Optional[int]:
         """
         Executes the rebalancing of a virtual machine (VM) to a new node within the cluster.
         This function initiates the migration of a specified VM to a target node as part of the
@@ -142,17 +143,17 @@ class Balancing:
             None
         """
         logger.debug("Starting: exec_rebalancing_vm.")
-        guest_id = proxlb_data["guests"][guest_name]["id"]
-        guest_node_current = proxlb_data["guests"][guest_name]["node_current"]
-        guest_node_target = proxlb_data["guests"][guest_name]["node_target"]
+        guest_id = proxlb_data.guests[guest_name].id
+        guest_node_current = proxlb_data.guests[guest_name].node_current
+        guest_node_target = proxlb_data.guests[guest_name].node_target
         job_id = None
 
-        if proxlb_data["meta"]["balancing"].get("live", True):
+        if proxlb_data.meta.balancing.live:
             online_migration = 1
         else:
             online_migration = 0
 
-        if proxlb_data["meta"]["balancing"].get("with_local_disks", True):
+        if proxlb_data.meta.balancing.with_local_disks:
             with_local_disks = 1
         else:
             with_local_disks = 0
@@ -165,7 +166,7 @@ class Balancing:
 
         # Conntrack state aware migrations are not supported in older
         # PVE versions, so we should not add it by default.
-        if proxlb_data["meta"]["balancing"].get("with_conntrack_state", True):
+        if proxlb_data.meta.balancing.with_conntrack_state:
             migration_options['with-conntrack-state'] = 1
 
         try:
@@ -178,7 +179,7 @@ class Balancing:
         logger.debug("Finished: exec_rebalancing_vm.")
         return job_id
 
-    def exec_rebalancing_ct(self, proxmox_api: ProxmoxApi, proxlb_data: Dict[str, Any], guest_name: str) -> Optional[int]:
+    def exec_rebalancing_ct(self, proxmox_api: ProxmoxApi, proxlb_data: ProxLbData, guest_name: str) -> Optional[int]:
         """
         Executes the rebalancing of a container (CT) to a new node within the cluster.
         This function initiates the migration of a specified CT to a target node as part of the
@@ -194,9 +195,9 @@ class Balancing:
             None
         """
         logger.debug("Starting: exec_rebalancing_ct.")
-        guest_id = proxlb_data["guests"][guest_name]["id"]
-        guest_node_current = proxlb_data["guests"][guest_name]["node_current"]
-        guest_node_target = proxlb_data["guests"][guest_name]["node_target"]
+        guest_id = proxlb_data.guests[guest_name].id
+        guest_node_current = proxlb_data.guests[guest_name].node_current
+        guest_node_target = proxlb_data.guests[guest_name].node_target
         job_id = None
 
         try:
@@ -209,7 +210,7 @@ class Balancing:
         logger.debug("Finished: exec_rebalancing_ct.")
         return job_id
 
-    def get_rebalancing_job_status(self, proxmox_api: ProxmoxApi, proxlb_data: Dict[str, Any], guest_name: str, guest_current_node: str, job_id: int, retry_counter: int = 1) -> bool:
+    def get_rebalancing_job_status(self, proxmox_api: ProxmoxApi, proxlb_data: ProxLbData, guest_name: str, guest_current_node: str, job_id: int, retry_counter: int = 1) -> bool:
         """
         Monitors the status of a rebalancing job on a Proxmox node until it completes or a timeout is reached.
 
@@ -250,7 +251,7 @@ class Balancing:
             retry_counter += 1
 
             # Run recursion until we hit the soft-limit of maximum migration time for a guest
-            if retry_counter < proxlb_data["meta"]["balancing"].get("max_job_validation", 1800):
+            if retry_counter < proxlb_data.meta.balancing.max_job_validation:
                 logger.debug(f"Balancing: Job ID {job_id} (guest: {guest_name}) for migration is still running... (Run: {retry_counter})")
                 self.get_rebalancing_job_status(proxmox_api, proxlb_data, guest_name, guest_current_node, job_id, retry_counter)
             else:

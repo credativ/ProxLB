@@ -8,8 +8,9 @@ __copyright__ = "Copyright (C) 2025 Florian Paul Azim Hoberg (@gyptazy)"
 __license__ = "GPL-3.0"
 
 
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Literal
 from utils.logger import SystemdLogger
+from utils.proxlb_data import ProxLbData
 from utils.proxmox_api import ProxmoxApi
 
 logger = SystemdLogger()
@@ -37,7 +38,7 @@ class HaRules:
         """
 
     @staticmethod
-    def get_ha_rules(proxmox_api: ProxmoxApi, meta: Dict[str, Any]) -> Dict[str, Any]:
+    def get_ha_rules(proxmox_api: ProxmoxApi, meta: ProxLbData.Meta) -> Dict[str, ProxLbData.HaRule]:
         """
         Retrieve all HA rules from a Proxmox cluster.
 
@@ -55,10 +56,10 @@ class HaRules:
                                     to {"rule": <rule_id>, "type": <affinity_type>, "members": [<resource_ids>...]}.
         """
         logger.debug("Starting: get_ha_rules.")
-        ha_rules: Dict[str, Any] = {"ha_rules": {}}
+        ha_rules: Dict[str, ProxLbData.HaRule] = {}
 
         # If any node is non PVE 9, skip fetching HA rules as they are unsupported
-        if meta["meta"]["cluster_non_pve9"]:
+        if meta.cluster_non_pve9:
             logger.debug("Skipping HA rule retrieval as non Proxmox VE 9 systems detected.")
             return ha_rules
         else:
@@ -76,6 +77,7 @@ class HaRules:
             resources_list_guests = [int(r.split(":")[1]) for r in rule["resources"].split(",") if r.strip()]
 
             # Convert the affinity field to a more descriptive type
+            affinity_type: Literal["affinity", "anti-affinity"]
             if rule.get("affinity", None) == "negative":
                 affinity_type = "anti-affinity"
             else:
@@ -87,11 +89,12 @@ class HaRules:
                 resources_list_nodes = [n for n in rule["nodes"].split(",") if n]
 
             # Create the ha_rule element
-            ha_rules['ha_rules'][rule['rule']] = {}
-            ha_rules['ha_rules'][rule['rule']]['rule'] = rule['rule']
-            ha_rules['ha_rules'][rule['rule']]['type'] = affinity_type
-            ha_rules['ha_rules'][rule['rule']]['nodes'] = resources_list_nodes
-            ha_rules['ha_rules'][rule['rule']]['members'] = resources_list_guests
+            ha_rules[rule['rule']] = ProxLbData.HaRule(
+                rule = rule['rule'],
+                type = affinity_type,
+                nodes = resources_list_nodes,
+                members = resources_list_guests,
+            )
 
             logger.debug(f"Got ha-rule: {rule['rule']} as type {affinity_type} affecting guests: {rule['resources']}")
 
@@ -116,7 +119,7 @@ class HaRules:
         logger.debug("Starting: get_ha_rules_for_guest.")
         guest_ha_rules = []
 
-        for rule in ha_rules["ha_rules"].values():
+        for rule in ha_rules.values():
             if vm_id in rule.get("members", []):
                 logger.debug(f"Guest: {guest_name} (VMID: {vm_id}) is member of HA Rule: {rule['rule']}.")
                 guest_ha_rules.append(rule)
