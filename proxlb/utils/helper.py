@@ -15,6 +15,7 @@ import socket
 import sys
 import time
 import utils.version
+from utils.config_parser import Config
 from utils.logger import SystemdLogger
 from typing import Dict, Any, Tuple, Optional
 from types import FrameType
@@ -40,7 +41,7 @@ class Helper:
         get_version(print_version: bool = False) -> None:
             Returns the current version of ProxLB and optionally prints it to stdout.
 
-        get_daemon_mode(proxlb_config: Dict[str, Any]) -> None:
+        get_daemon_mode(proxlb_config: Config) -> None:
             Checks if the daemon mode is active and handles the scheduling accordingly.
     """
     proxlb_reload = False
@@ -112,7 +113,7 @@ class Helper:
             sys.exit(0)
 
     @staticmethod
-    def get_daemon_mode(proxlb_config: Dict[str, Any]) -> None:
+    def get_daemon_mode(proxlb_config: Config) -> None:
         """
         Checks if the daemon mode is active and handles the scheduling accordingly.
 
@@ -123,25 +124,10 @@ class Helper:
             None
         """
         logger.debug("Starting: get_daemon_mode.")
-        if proxlb_config.get("service", {}).get("daemon", True):
+        if proxlb_config.service.daemon:
 
-            # Validate schedule format which changed in v1.1.1
-            if type(proxlb_config["service"].get("schedule", None)) != dict:
-                logger.error("Invalid format for schedule. Please use 'hours' or 'minutes'.")
-                sys.exit(1)
-
-            # Convert hours to seconds
-            if proxlb_config["service"]["schedule"].get("format", "hours") == "hours":
-                sleep_seconds = proxlb_config.get("service", {}).get("schedule", {}).get("interval", 12) * 3600
-            # Convert minutes to seconds
-            elif proxlb_config["service"]["schedule"].get("format", "hours") == "minutes":
-                sleep_seconds = proxlb_config.get("service", {}).get("schedule", {}).get("interval", 720) * 60
-            else:
-                logger.error("Invalid format for schedule. Please use 'hours' or 'minutes'.")
-                sys.exit(1)
-
-            logger.info(f"Daemon mode active: Next run in: {proxlb_config.get('service', {}).get('schedule', {}).get('interval', 12)} {proxlb_config['service']['schedule'].get('format', 'hours')}.")
-            time.sleep(sleep_seconds)
+            logger.info(f"Daemon mode active: Next run in: {proxlb_config.service.schedule}.")
+            time.sleep(proxlb_config.service.schedule.seconds)
 
         else:
             logger.debug("Successfully executed ProxLB. Daemon mode not active - stopping.")
@@ -151,7 +137,7 @@ class Helper:
         logger.debug("Finished: get_daemon_mode.")
 
     @staticmethod
-    def get_service_delay(proxlb_config: Dict[str, Any]) -> None:
+    def get_service_delay(proxlb_config: Config) -> None:
         """
         Checks if a start up delay for the service is defined and waits to proceed until
         the time is up.
@@ -163,20 +149,9 @@ class Helper:
             None
         """
         logger.debug("Starting: get_service_delay.")
-        if proxlb_config.get("service", {}).get("delay", {}).get("enable", False):
-
-            # Convert hours to seconds
-            if proxlb_config["service"]["delay"].get("format", "hours") == "hours":
-                sleep_seconds = proxlb_config.get("service", {}).get("delay", {}).get("time", 1) * 3600
-            # Convert minutes to seconds
-            elif proxlb_config["service"]["delay"].get("format", "hours") == "minutes":
-                sleep_seconds = proxlb_config.get("service", {}).get("delay", {}).get("time", 60) * 60
-            else:
-                logger.error("Invalid format for service delay. Please use 'hours' or 'minutes'.")
-                sys.exit(1)
-
-            logger.info(f"Service delay active: First run in: {proxlb_config.get('service', {}).get('delay', {}).get('time', 1)} {proxlb_config['service']['delay'].get('format', 'hours')}.")
-            time.sleep(sleep_seconds)
+        if proxlb_config.service.delay.enable:
+            logger.info(f"Service delay active: First run in: {proxlb_config.service.delay}.")
+            time.sleep(proxlb_config.service.delay.seconds)
 
         else:
             logger.debug("Service delay not active. Proceeding without delay.")

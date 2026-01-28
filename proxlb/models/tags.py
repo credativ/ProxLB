@@ -15,6 +15,7 @@ from typing import List
 from typing import Dict, Any
 from utils.logger import SystemdLogger
 from utils.helper import Helper
+from utils.config_parser import Config
 from utils.proxmox_api import ProxmoxApi
 
 logger = SystemdLogger()
@@ -83,7 +84,7 @@ class Tags:
         return tags
 
     @staticmethod
-    def get_affinity_groups(tags: List[str], pools: List[str], ha_rules: List[Dict[str, Any]], proxlb_config: Dict[str, Any]) -> List[str]:
+    def get_affinity_groups(tags: List[str], pools: List[str], ha_rules: List[Dict[str, Any]], proxlb_config: Config) -> List[str]:
         """
         Get affinity tags for a guest from the Proxmox cluster by the API.
 
@@ -115,8 +116,8 @@ class Tags:
         # Pool based affinity groups
         if len(pools) > 0:
             for pool in pools:
-                if pool in (proxlb_config['balancing'].get('pools') or {}):
-                    if proxlb_config['balancing']['pools'][pool].get('type', None) == 'affinity':
+                if proxlb_config.balancing.pools and pool in proxlb_config.balancing.pools:
+                    if proxlb_config.balancing.pools[pool].type == 'affinity':
                         logger.debug(f"Adding affinity group for pool {pool}.")
                         affinity_tags.append(pool)
                 else:
@@ -133,7 +134,7 @@ class Tags:
         return affinity_tags
 
     @staticmethod
-    def get_anti_affinity_groups(tags: List[str], pools: List[str], ha_rules: List[Dict[str, Any]], proxlb_config: Dict[str, Any]) -> List[str]:
+    def get_anti_affinity_groups(tags: List[str], pools: List[str], ha_rules: List[Dict[str, Any]], proxlb_config: Config) -> List[str]:
         """
         Get anti-affinity tags for a guest from the Proxmox cluster by the API.
 
@@ -165,8 +166,8 @@ class Tags:
         # Pool based anti-affinity groups
         if len(pools) > 0:
             for pool in pools:
-                if pool in (proxlb_config['balancing'].get('pools') or {}):
-                    if proxlb_config['balancing']['pools'][pool].get('type', None) == 'anti-affinity':
+                if proxlb_config.balancing.pools and pool in proxlb_config.balancing.pools:
+                    if proxlb_config.balancing.pools[pool].type == 'anti-affinity':
                         logger.debug(f"Adding anti-affinity group for pool {pool}.")
                         anti_affinity_tags.append(pool)
                 else:
@@ -213,7 +214,7 @@ class Tags:
         return ignore_tag
 
     @staticmethod
-    def get_node_relationships(tags: List[str], nodes: Dict[str, Any], pools: List[str], ha_rules: List[Dict[str, Any]], proxlb_config: Dict[str, Any]) -> List[str]:
+    def get_node_relationships(tags: List[str], nodes: Dict[str, Any], pools: List[str], ha_rules: List[Dict[str, Any]], proxlb_config: Config) -> List[str]:
         """
         Get a node relationship tag for a guest from the Proxmox cluster by the API to pin
         a guest to a node or by defined pools from ProxLB configuration.
@@ -250,12 +251,12 @@ class Tags:
                         logger.warning(f"Tag {node_relationship_tag} is invalid! Defined node does not exist in the cluster. Not applying pinning.")
 
         # Pool based node relationship
-        if len(pools) > 0:
+        if pools and proxlb_config.balancing.pools:
             logger.debug("Validating node pinning by pools.")
             for pool in pools:
-                if pool in (proxlb_config['balancing'].get('pools') or {}):
+                if pool in proxlb_config.balancing.pools:
 
-                    pool_nodes = proxlb_config['balancing']['pools'][pool].get('pin', None)
+                    pool_nodes = proxlb_config.balancing.pools[pool].pin
                     for node in pool_nodes if pool_nodes is not None else []:
 
                         # Validate if the node to pin is present in the cluster

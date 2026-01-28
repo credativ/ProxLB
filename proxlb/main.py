@@ -50,7 +50,7 @@ def main() -> None:
     proxlb_config = config_parser.get_config()
 
     # Update log level from config and fallback to INFO if not defined
-    logger.set_log_level(proxlb_config.get('service', {}).get('log_level', 'INFO'))
+    logger.set_log_level(proxlb_config.service.log_level)
 
     # Validate of an optional service delay
     Helper.get_service_delay(proxlb_config)
@@ -59,7 +59,7 @@ def main() -> None:
     proxmox_api = ProxmoxApi(proxlb_config)
 
     # Overwrite password after creating the API object
-    proxlb_config["proxmox_api"]["pass"] = "********"
+    proxlb_config.proxmox_api.password = "********"
 
     while True:
 
@@ -68,11 +68,11 @@ def main() -> None:
         if Helper.proxlb_reload:
             logger.info("Reloading ProxLB configuration.")
             proxlb_config = config_parser.get_config()
-            logger.set_log_level(proxlb_config.get('service', {}).get('log_level', 'INFO'))
+            logger.set_log_level(proxlb_config.service.log_level)
             Helper.proxlb_reload = False
 
         # Get all required objects from the Proxmox cluster
-        meta = {"meta": proxlb_config}
+        meta = {"meta": proxlb_config.model_dump()}
         nodes = Nodes.get_nodes(proxmox_api, proxlb_config)
         meta = Features.validate_any_non_pve9_node(meta, nodes)
         pools = Pools.get_pools(proxmox_api)

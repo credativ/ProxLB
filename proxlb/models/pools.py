@@ -9,6 +9,7 @@ __license__ = "GPL-3.0"
 
 
 from typing import Dict, Any
+from utils.config_parser import Config
 from utils.logger import SystemdLogger
 from utils.proxmox_api import ProxmoxApi
 from models.tags import Tags
@@ -118,7 +119,7 @@ class Pools:
         return guest_pools
 
     @staticmethod
-    def get_pool_node_affinity_strictness(proxlb_config: Dict[str, Any], guest_pools: list[str]) -> bool:
+    def get_pool_node_affinity_strictness(proxlb_config: Config, guest_pools: list[str]) -> bool:
         """
         Retrieve the node affinity strictness setting for a guest across its pools.
 
@@ -127,7 +128,7 @@ class Pools:
         strictness setting from the first matching pool configuration.
 
         Args:
-            proxlb_config (Dict[str, Any]):     ProxLB configuration dictionary.
+            proxlb_config (utils.config_parser.Config): ProxLB configuration dictionary.
             guest_pools (list):                 List of pool names the guest belongs to.
 
         Returns:
@@ -137,8 +138,8 @@ class Pools:
 
         node_strictness = True
         for pool in guest_pools:
-            pool_settings = proxlb_config.get("balancing", {}).get("pools", {}).get(pool, {})
-            node_strictness = pool_settings.get("strict", True)
+            if proxlb_config.balancing.pools and pool in proxlb_config.balancing.pools:
+                node_strictness = proxlb_config.balancing.pools[pool].strict
 
         logger.debug("Finished: get_pool_node_affinity_strictness.")
         return node_strictness

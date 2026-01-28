@@ -23,6 +23,7 @@ __license__ = "GPL-3.0"
 
 import time
 from typing import Dict, Any, Union
+from utils.config_parser import Config, ResourceType
 from utils.logger import SystemdLogger
 from utils.helper import Helper
 from utils.proxmox_api import ProxmoxApi
@@ -41,7 +42,7 @@ class Nodes:
         """
 
     @staticmethod
-    def get_nodes(proxmox_api: ProxmoxApi, proxlb_config: Dict[str, Any]) -> Dict[str, Any]:
+    def get_nodes(proxmox_api: ProxmoxApi, proxlb_config: Config) -> Dict[str, Any]:
         """
         Get metrics of all nodes in a Proxmox cluster.
 
@@ -113,7 +114,7 @@ class Nodes:
         return nodes
 
     @staticmethod
-    def set_node_maintenance(proxmox_api: ProxmoxApi, proxlb_config: Dict[str, Any], node_name: str) -> bool:
+    def set_node_maintenance(proxmox_api: ProxmoxApi, proxlb_config: Config, node_name: str) -> bool:
         """
         Set nodes to maintenance mode based on the provided configuration.
 
@@ -131,13 +132,11 @@ class Nodes:
         logger.debug("Starting: set_node_maintenance.")
 
         # Evaluate maintenance mode by config
-        if proxlb_config["proxmox_cluster"].get("maintenance_nodes", None) is not None:
-            if len(proxlb_config.get("proxmox_cluster", {}).get("maintenance_nodes", [])) > 0:
-                if node_name in proxlb_config.get("proxmox_cluster", {}).get("maintenance_nodes", []):
-                    logger.info(f"Node: {node_name} has been set to maintenance mode (by ProxLB config).")
-                    return True
-                else:
-                    logger.debug(f"Node: {node_name} is not in maintenance mode by ProxLB config.")
+        if node_name in proxlb_config.proxmox_cluster.maintenance_nodes:
+            logger.info(f"Node: {node_name} has been set to maintenance mode (by ProxLB config).")
+            return True
+        else:
+            logger.debug(f"Node: {node_name} is not in maintenance mode by ProxLB config.")
 
         # Evaluate maintenance mode by Proxmox HA
         for ha_element in proxmox_api.cluster.ha.status.current.get():
@@ -153,7 +152,7 @@ class Nodes:
         return False
 
     @staticmethod
-    def set_node_ignore(proxlb_config: Dict[str, Any], node_name: str) -> bool:
+    def set_node_ignore(proxlb_config: Config, node_name: str) -> bool:
         """
         Set nodes to be ignored based on the provided configuration.
 
@@ -169,11 +168,9 @@ class Nodes:
         """
         logger.debug("Starting: set_node_ignore.")
 
-        if proxlb_config["proxmox_cluster"].get("ignore_nodes", None) is not None:
-            if len(proxlb_config.get("proxmox_cluster", {}).get("ignore_nodes", [])) > 0:
-                if node_name in proxlb_config.get("proxmox_cluster", {}).get("ignore_nodes", []):
-                    logger.info(f"Node: {node_name} has been set to be ignored. Not adding node!")
-                    return True
+        if node_name in proxlb_config.proxmox_cluster.ignore_nodes:
+            logger.info(f"Node: {node_name} has been set to be ignored. Not adding node!")
+            return True
 
         logger.debug("Finished: set_node_ignore.")
         return False
@@ -263,7 +260,7 @@ class Nodes:
         return ret
 
     @staticmethod
-    def set_node_resource_reservation(node_name: str, resource_value: int, proxlb_config: Dict[str, Any], resource_type: str) -> Union[int, float]:
+    def set_node_resource_reservation(node_name: str, resource_value: int, proxlb_config: Config, resource_type: ResourceType) -> float:
         """
         Check if there is a configured resource reservation for the current node and apply it as needed.
         Checks for a node specific config first, then if there is any configured default and if neither then nothing is reserved.
@@ -280,14 +277,12 @@ class Nodes:
         """
         logger.debug(f"Starting: apply_resource_reservation")
 
-        balancing_cfg = proxlb_config.get("balancing", {})
-        reserve_cfg = balancing_cfg.get("node_resource_reserve", {})
-        node_resource_reservation = reserve_cfg.get(node_name, {}).get(resource_type, 0)
-        default_resource_reservation = reserve_cfg.get("defaults", {}).get(resource_type, 0)
-
-        # Ensure reservations are numeric values
-        node_resource_reservation = node_resource_reservation if isinstance(node_resource_reservation, (int, float)) else 0
-        default_resource_reservation = default_resource_reservation if isinstance(default_resource_reservation, (int, float)) else 0
+        if reserve_cfg := proxlb_config.balancing.node_resource_reserve:
+            node_resource_reservation: float = reserve_cfg.get(node_name, {}).get(resource_type, 0)
+            default_resource_reservation: float = reserve_cfg.get("defaults", {}).get(resource_type, 0)
+        else:
+            node_resource_reservation = 0
+            default_resource_reservation = 0
 
         # Apply node specific reservation if set
         if node_resource_reservation > 0:
