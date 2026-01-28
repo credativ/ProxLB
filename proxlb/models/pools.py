@@ -66,7 +66,12 @@ class Pools:
             pools['pools'][pool['poolid']]['members'] = []
 
             # Fetch pool details and collect member names
-            pool_details = proxmox_api.pools(pool['poolid']).get()
+            try:
+                pool_details = proxmox_api.pools(pool['poolid']).get()
+            except Exception as e:
+                logger.error(f"Error fetching pool details for pool {pool['poolid']}: {e}")
+                continue
+
             for member in pool_details.get("members", []):
 
                 # We might also have objects without the key "name", e.g. storage pools

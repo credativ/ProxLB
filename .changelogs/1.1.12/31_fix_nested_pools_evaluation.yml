@@ -1,0 +1,2 @@
+fixed:
+  - Fix nested pool evaluation which caused ProxLB to crash, caused by the proxmoxer library (@gyptazy). [#31]
