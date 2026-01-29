@@ -15,7 +15,8 @@ setup(
         "requests",
         "urllib3",
         "proxmoxer",
+        "pydantic",
         "pyyaml",
     ],
-        data_files=[('/etc/systemd/system', ['service/proxlb.service']), ('/etc/proxlb/', ['config/proxlb_example.yaml'])],
+    data_files=[('/etc/systemd/system', ['service/proxlb.service']), ('/etc/proxlb/', ['config/proxlb_example.yaml'])],
 )
