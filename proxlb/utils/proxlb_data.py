@@ -1,5 +1,5 @@
 from typing import Any, Literal, Optional, TypeVar, assert_never
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from .config_parser import Config, ResourceType
 
 ConfigType = TypeVar("ConfigType", bound="Config")
@@ -15,7 +15,7 @@ class ProxLbData(BaseModel):
             balance: bool = False
             balance_reason: str = 'resources'
             parallel_jobs: int = 5
-            processed_guests_psi: list[str] = Field(default_factory=list)
+            processed_guests_psi: list[str] = []
 
         balancing: Balancing = Balancing()  # pyright: ignore [reportIncompatibleVariableOverride]
         cluster_non_pve9: bool
@@ -44,11 +44,11 @@ class ProxLbData(BaseModel):
         class AntiAffinity(BaseModel):
             guests: list[str]
             counter: int = 1
-            used_nodes: list[str] = Field(default_factory=list)
+            used_nodes: list[str] = []
 
-        affinity: dict[str, Affinity] = Field(default_factory=dict)
-        anti_affinity: dict[str, AntiAffinity] = Field(default_factory=dict)
-        maintenance: list[str] = Field(default_factory=list)
+        affinity: dict[str, Affinity] = {}
+        anti_affinity: dict[str, AntiAffinity] = {}
+        maintenance: list[str] = []
 
     class Guest(BaseModel):
         class Metric(BaseModel):
@@ -120,7 +120,7 @@ class ProxLbData(BaseModel):
 
     class Pool(BaseModel):
         name: str
-        members: list[str] = Field(default_factory=list)
+        members: list[str] = []
 
     class HaRule(BaseModel):
         rule: str

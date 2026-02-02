@@ -45,8 +45,8 @@ class Config(BaseModel):
         wait_time: int = 1
 
     class ProxmoxCluster(BaseModel):
-        ignore_nodes: list[str] = Field(default_factory=list)
-        maintenance_nodes: list[str] = Field(default_factory=list)
+        ignore_nodes: list[str] = []
+        maintenance_nodes: list[str] = []
         overprovisioning: bool = False
 
     class Balancing(BaseModel):
@@ -64,7 +64,7 @@ class Config(BaseModel):
             type: Optional[Literal["affinity", "anti-affinity"]] = None
 
         balance_larger_guests_first: bool = False
-        balance_types: list[Literal['ct', 'vm']] = Field(default_factory=list)
+        balance_types: list[Literal['ct', 'vm']] = []
         balanciness: int = 10
         cpu_threshold: Optional[int] = None
         enable: bool = False
@@ -118,9 +118,9 @@ class Config(BaseModel):
                 return f"{self.interval} {self.format}"
 
         daemon: bool = True
-        delay: Delay = Field(default_factory=Delay)
+        delay: Delay = Delay()
         log_level: Literal["CRITICAL", "DEBUG", "ERROR", "INFO", "WARNING"] = "INFO"
-        schedule: Schedule = Field(default_factory=Schedule)
+        schedule: Schedule = Schedule()
 
     proxmox_api: ProxmoxAPI
     proxmox_cluster: ProxmoxCluster = ProxmoxCluster()
