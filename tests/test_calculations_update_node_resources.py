@@ -9,7 +9,10 @@ __license__ = "GPL-3.0"
 
 
 from proxlb.models.calculations import Calculations
+from proxlb.utils.config_parser import Config
 from .utils import MINIMAL_DATA, create_node, create_guest
+
+BalancingResource = Config.Balancing.Resource
 
 
 def test_min_usage_with_empty_nodes() -> None:
@@ -35,8 +38,8 @@ def test_min_usage_with_no_suitable_nodes() -> None:
     proxlb_data.nodes = {"node1": node1, "node2": node2}
     proxlb_data.guests = {"guest": guest}
 
-    node1.metric("memory").used_percent = 10
-    node2.metric("memory").used_percent = 20
+    node1.metric(BalancingResource.Memory).used_percent = 10
+    node2.metric(BalancingResource.Memory).used_percent = 20
 
     proxlb_data.meta.balancing.balance_next_guest = "guest"
 

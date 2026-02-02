@@ -15,8 +15,11 @@ import time
 from itertools import islice
 from ..utils.logger import SystemdLogger
 from ..utils.proxmox_api import ProxmoxApi
+from ..utils.config_parser import Config
 from ..utils.proxlb_data import ProxLbData
 from typing import Dict, Generator, Optional, assert_never
+
+GuestType = Config.GuestType
 
 logger = SystemdLogger()
 
@@ -91,7 +94,7 @@ class Balancing:
                         job_id = None
 
                         # VM Balancing
-                        if guest_meta.type == "vm":
+                        if guest_meta.type == GuestType.Vm:
                             if 'vm' in proxlb_data.meta.balancing.balance_types:
                                 logger.debug(f"Balancing: Balancing for guest {guest_name} of type VM started.")
                                 job_id = self.exec_rebalancing_vm(proxmox_api, proxlb_data, guest_name)
@@ -101,7 +104,7 @@ class Balancing:
                                     "Guest is of type VM which is not included in allowed balancing types.")
 
                         # CT Balancing
-                        elif guest_meta.type == "ct":
+                        elif guest_meta.type == GuestType.Ct:
                             if 'ct' in proxlb_data.meta.balancing.balance_types:
                                 logger.debug(f"Balancing: Balancing for guest {guest_name} of type CT started.")
                                 job_id = self.exec_rebalancing_ct(proxmox_api, proxlb_data, guest_name)

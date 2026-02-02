@@ -15,7 +15,8 @@ try:
     PYYAML_PRESENT = True
 except ImportError:
     PYYAML_PRESENT = False
-from typing import Literal, Optional, TypeAlias, assert_never
+from enum import StrEnum
+from typing import Optional, assert_never
 from pydantic import BaseModel, Field, ValidationError
 from pathlib import Path
 from .logger import SystemdLogger
@@ -28,10 +29,21 @@ if not PYYAML_PRESENT:
 
 logger = SystemdLogger()
 
-ResourceType: TypeAlias = Literal["cpu", "disk", "memory"]
+
+class TimeFormat(StrEnum):
+    Hours = "hours"
+    Minutes = "minutes"
 
 
 class Config(BaseModel):
+
+    class AffinityType(StrEnum):
+        PositiveAffinity = "affinity"
+        NegativeAffinity = "anti-affinity"
+
+    class GuestType(StrEnum):
+        Vm = "vm"
+        Ct = "ct"
 
     class ProxmoxAPI(BaseModel):
         hosts: list[str]
@@ -50,21 +62,31 @@ class Config(BaseModel):
         overprovisioning: bool = False
 
     class Balancing(BaseModel):
+        class Resource(StrEnum):
+            Cpu = "cpu"
+            Disk = "disk"
+            Memory = "memory"
+
+        class Mode(StrEnum):
+            Assigned = "assigned"
+            Psi = "psi"
+            Used = "used"
+
         class Psi(BaseModel):
             class Pressure(BaseModel):
                 pressure_full: float
                 pressure_some: float
                 pressure_spikes: float
-            guests: dict[ResourceType, Pressure]
-            nodes: dict[ResourceType, Pressure]
+            guests: dict["Config.Balancing.Resource", Pressure]
+            nodes: dict["Config.Balancing.Resource", Pressure]
 
         class Pool(BaseModel):
             pin: Optional[list[str]] = None
             strict: bool = True
-            type: Optional[Literal["affinity", "anti-affinity"]] = None
+            type: Optional["Config.AffinityType"] = None
 
         balance_larger_guests_first: bool = False
-        balance_types: list[Literal['ct', 'vm']] = []
+        balance_types: list["Config.GuestType"] = []
         balanciness: int = 10
         cpu_threshold: Optional[int] = None
         enable: bool = False
@@ -74,58 +96,66 @@ class Config(BaseModel):
         max_job_validation: int = 1800
         memory_threshold: Optional[int] = None
         disk_threshold: Optional[int] = None
-        method: ResourceType = "memory"
-        mode: Literal["assigned", "psi", "used"] = "used"
-        node_resource_reserve: Optional[dict[str, dict[ResourceType, int]]] = None
+        method: "Config.Balancing.Resource" = Resource.Memory
+        mode: Mode = Mode.Used
+        node_resource_reserve: Optional[dict[str, dict["Config.Balancing.Resource", int]]] = None
         parallel: bool = False
         pools: Optional[dict[str, Pool]] = None
         psi: Optional[Psi] = None
         with_conntrack_state: bool = True
         with_local_disks: bool = True
 
-        def threshold(self, method: ResourceType) -> Optional[int]:
-            if method == "cpu":
+        def threshold(self, method: "Config.Balancing.Resource") -> Optional[int]:
+            if method == self.Resource.Cpu:
                 return self.cpu_threshold
-            elif method == "disk":
+            elif method == self.Resource.Disk:
                 return self.disk_threshold
-            elif method == "memory":
+            elif method == self.Resource.Memory:
                 return self.memory_threshold
             else:
                 assert_never(method)
 
     class Service(BaseModel):
+
+        class LogLevel(StrEnum):
+            CRITICAL = "CRITICAL"
+            DEBUG = "DEBUG"
+            ERROR = "ERROR"
+            INFO = "INFO"
+            WARNING = "WARNING"
+
         class Delay(BaseModel):
             enable: bool = False
-            format: Literal["hours", "minutes"] = "hours"
+            format: TimeFormat = TimeFormat.Hours
             time: int = 1
 
             @property
             def seconds(self) -> int:
-                return self.time * 3600 if self.format == "hours" else self.time * 60
+                return self.time * 3600 if self.format == TimeFormat.Hours else self.time * 60
 
             def __str__(self) -> str:
                 return f"{self.time} {self.format}"
 
         class Schedule(BaseModel):
-            format: Literal["hours", "minutes"] = "hours"
+            format: TimeFormat = TimeFormat.Hours
             interval: int = 12
 
             @property
             def seconds(self) -> int:
-                return self.interval * 3600 if self.format == "hours" else self.interval * 60
+                return self.interval * 3600 if self.format == TimeFormat.Hours else self.interval * 60
 
             def __str__(self) -> str:
                 return f"{self.interval} {self.format}"
 
         daemon: bool = True
         delay: Delay = Delay()
-        log_level: Literal["CRITICAL", "DEBUG", "ERROR", "INFO", "WARNING"] = "INFO"
+        log_level: "Config.Service.LogLevel" = LogLevel.INFO
         schedule: Schedule = Schedule()
 
     proxmox_api: ProxmoxAPI
     proxmox_cluster: ProxmoxCluster = ProxmoxCluster()
-    balancing: Balancing = Balancing()
-    service: Service = Service()
+    balancing: Balancing = Field(default_factory=Balancing)
+    service: Service = Field(default_factory=Service)
 
 
 class ConfigParser:

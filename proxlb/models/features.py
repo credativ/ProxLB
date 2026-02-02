@@ -14,6 +14,9 @@ from ..utils.config_parser import Config
 from ..utils.proxlb_data import ProxLbData
 from packaging import version
 
+BalancingResource = Config.Balancing.Resource
+BalancingMode = Config.Balancing.Mode
+
 logger = SystemdLogger()
 
 
@@ -83,7 +86,7 @@ class Features:
                 logger.warning("Non Proxmox VE 9 systems detected: Deactivating migration option 'with-conntrack-state'!")
                 proxlb_data.meta.balancing.with_conntrack_state = False
 
-            if proxlb_data.meta.balancing.mode == "psi":
+            if proxlb_data.meta.balancing.mode == BalancingMode.Psi:
                 logger.warning("Non Proxmox VE 9 systems detected: Deactivating balancing!")
                 proxlb_data.meta.balancing.enable = False
 

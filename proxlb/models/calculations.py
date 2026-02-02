@@ -14,7 +14,10 @@ import sys
 from typing import Optional, assert_never
 from ..utils.logger import SystemdLogger
 from ..utils.proxlb_data import ProxLbData
-from ..utils.config_parser import ResourceType
+from ..utils.config_parser import Config
+
+BalancingResource = Config.Balancing.Resource
+BalancingMode = Config.Balancing.Mode
 
 logger = SystemdLogger()
 
@@ -114,7 +117,7 @@ class Calculations:
                 continue
 
             # PSI metrics are only availavble on Proxmox VE 9.0 and higher.
-            if proxlb_data.meta.balancing.mode == "psi":
+            if proxlb_data.meta.balancing.mode == BalancingMode.Psi:
 
                 if tuple(map(int, proxlb_data.nodes[node.name].pve_version.split('.'))) < tuple(map(int, "9.0".split('.'))):
                     logger.critical(f"Proxmox node {node.name} runs Proxmox VE version {proxlb_data.nodes[node.name].pve_version}."
@@ -190,7 +193,7 @@ class Calculations:
             mode = proxlb_data.meta.balancing.mode
             balanciness = proxlb_data.meta.balancing.balanciness
 
-            if mode == "assigned":
+            if mode == BalancingMode.Assigned:
                 method_value = [node_meta.metric(method).assigned_percent for node_meta in proxlb_data.nodes.values()]
 
                 if threshold := proxlb_data.meta.balancing.threshold(method):
@@ -207,7 +210,7 @@ class Calculations:
                 else:
                     logger.debug(f"No {method} threshold defined for balancing. Skipping threshold check.")
 
-            elif mode == "used":
+            elif mode == BalancingMode.Used:
                 method_value = [node_meta.metric(method).used_percent for node_meta in proxlb_data.nodes.values()]
 
                 if threshold := proxlb_data.meta.balancing.threshold(method):
@@ -224,7 +227,7 @@ class Calculations:
                 else:
                     logger.debug(f"No {method} threshold defined for balancing. Skipping threshold check.")
 
-            elif mode == "psi":
+            elif mode == BalancingMode.Psi:
                 method_value = [node_meta.metric(method).pressure_full_spikes_percent for node_meta in proxlb_data.nodes.values()]
                 any_node_hot = any(node.metric(method).pressure_hot for node in proxlb_data.nodes.values())
                 any_guest_hot = any(node.metric(method).pressure_hot for node in proxlb_data.guests.values())
@@ -307,19 +310,19 @@ class Calculations:
         method = proxlb_data.meta.balancing.method
         mode = proxlb_data.meta.balancing.mode
 
-        if mode == "assigned":
+        if mode == BalancingMode.Assigned:
             logger.debug(f"Get best node for balancing by assigned {method} resources.")
             lowest_usage_node = min(
                 filtered_nodes, key=lambda x: x.metric(method).assigned_percent
             )
 
-        elif mode == "used":
+        elif mode == BalancingMode.Used:
             logger.debug(f"Get best node for balancing by used {method} resources.")
             lowest_usage_node = min(
                 filtered_nodes, key=lambda x: x.metric(method).used_percent
             )
 
-        elif mode == "psi":
+        elif mode == BalancingMode.Psi:
             logger.debug(f"Get best node for balancing by pressure of {method} resources.")
             lowest_usage_node = min(
                 filtered_nodes, key=lambda x: x.metric(method).pressure_full_spikes_percent
@@ -395,7 +398,7 @@ class Calculations:
         """
         logger.debug("Starting: relocate_guests.")
 
-        method: ResourceType  # keep this for pyright
+        method: BalancingResource  # keep this for pyright
 
         # Balance only if it is required by:
         #  - balanciness
@@ -463,7 +466,7 @@ class Calculations:
                             logger.warning(f"Skipping relocation of guest {guest_name} due to insufficient resources on target node {proxlb_data.meta.balancing.balance_next_node}. This might affect affinity group {group_name}.")
                         continue
 
-                    if mode == 'psi':
+                    if mode == BalancingMode.Psi:
                         logger.debug(f"Evaluating guest relocation based on {mode} mode.")
                         method = proxlb_data.meta.balancing.method
                         processed_guests_psi = proxlb_data.meta.balancing.processed_guests_psi

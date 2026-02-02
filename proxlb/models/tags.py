@@ -11,12 +11,15 @@ __license__ = "GPL-3.0"
 
 
 import time
-from typing import Dict, List, Literal, assert_never
+from typing import Dict, List, assert_never
 from ..utils.logger import SystemdLogger
 from ..utils.helper import Helper
 from ..utils.config_parser import Config
 from ..utils.proxmox_api import ProxmoxApi
 from ..utils.proxlb_data import ProxLbData
+
+AffinityType = Config.AffinityType
+GuestType = Config.GuestType
 
 logger = SystemdLogger()
 
@@ -50,7 +53,7 @@ class Tags:
         """
 
     @staticmethod
-    def get_tags_from_guests(proxmox_api: ProxmoxApi, node: str, guest_id: int, guest_type: Literal["ct", "vm"]) -> List[str]:
+    def get_tags_from_guests(proxmox_api: ProxmoxApi, node: str, guest_id: int, guest_type: GuestType) -> List[str]:
         """
         Get tags for a guest from the Proxmox cluster by the API.
 
@@ -69,10 +72,10 @@ class Tags:
         logger.debug("Starting: get_tags_from_guests.")
         time.sleep(0.1)
         api_tags: str
-        if guest_type == 'vm':
+        if guest_type == GuestType.Vm:
             guest_config = proxmox_api.nodes(node).qemu(guest_id).config.get()
             api_tags = guest_config.get("tags", "")
-        elif guest_type == 'ct':
+        elif guest_type == GuestType.Ct:
             guest_config = proxmox_api.nodes(node).lxc(guest_id).config.get()
             api_tags = guest_config.get("tags", "")
         else:
@@ -117,7 +120,7 @@ class Tags:
         if len(pools) > 0:
             for pool in pools:
                 if proxlb_config.balancing.pools and pool in proxlb_config.balancing.pools:
-                    if proxlb_config.balancing.pools[pool].type == 'affinity':
+                    if proxlb_config.balancing.pools[pool].type == AffinityType.PositiveAffinity:
                         logger.debug(f"Adding affinity group for pool {pool}.")
                         affinity_tags.append(pool)
                 else:
@@ -126,7 +129,7 @@ class Tags:
         # HA rule based affinity groups
         if len(ha_rules) > 0:
             for ha_rule in ha_rules:
-                if ha_rule.type == 'affinity':
+                if ha_rule.type == AffinityType.PositiveAffinity:
                     logger.debug(f"Adding affinity group for ha-rule {ha_rule}.")
                     affinity_tags.append(ha_rule.rule)
 
@@ -167,7 +170,7 @@ class Tags:
         if len(pools) > 0:
             for pool in pools:
                 if proxlb_config.balancing.pools and pool in proxlb_config.balancing.pools:
-                    if proxlb_config.balancing.pools[pool].type == 'anti-affinity':
+                    if proxlb_config.balancing.pools[pool].type == AffinityType.NegativeAffinity:
                         logger.debug(f"Adding anti-affinity group for pool {pool}.")
                         anti_affinity_tags.append(pool)
                 else:
@@ -176,7 +179,7 @@ class Tags:
         # HA rule based anti-affinity groups
         if len(ha_rules) > 0:
             for ha_rule in ha_rules:
-                if ha_rule.type == 'anti-affinity':
+                if ha_rule.type == AffinityType.NegativeAffinity:
                     logger.debug(f"Adding anti-affinity group for ha-rule {ha_rule}.")
                     anti_affinity_tags.append(ha_rule.rule)
 
@@ -275,7 +278,7 @@ class Tags:
             logger.debug("Validating node pinning by ha-rules.")
             for ha_rule in ha_rules:
                 if ha_rule.nodes:
-                    if ha_rule.type == "affinity":
+                    if ha_rule.type == AffinityType.PositiveAffinity:
                         logger.debug(f"ha-rule {ha_rule.rule} is of type affinity.")
                         for node in ha_rule.nodes:
                             logger.debug(f"Adding {node} as node relationship because of ha-rule {ha_rule.rule}.")

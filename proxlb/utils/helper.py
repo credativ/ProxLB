@@ -21,6 +21,8 @@ from .proxlb_data import ProxLbData
 from typing import Dict, Tuple, Optional
 from types import FrameType
 
+BalancingResource = Config.Balancing.Resource
+
 logger = SystemdLogger()
 
 
@@ -88,11 +90,11 @@ class Helper:
         nodes_usage_disk = " | ".join([f"{key}: {value.disk.used_percent:.2f}%" for key, value in proxlb_data.nodes.items()])
 
         if init:
-            proxlb_data.meta.statistics = {"before": {"memory": nodes_usage_memory, "cpu": nodes_usage_cpu, "disk": nodes_usage_disk}, "after": {"memory": "", "cpu": "", "disk": ""}}
+            proxlb_data.meta.statistics = {"before": {BalancingResource.Memory: nodes_usage_memory, BalancingResource.Cpu: nodes_usage_cpu, BalancingResource.Disk: nodes_usage_disk}, "after": {BalancingResource.Memory: "", BalancingResource.Cpu: "", BalancingResource.Disk: ""}}
         elif proxlb_data.meta.statistics:
-            proxlb_data.meta.statistics["after"] = {"memory": nodes_usage_memory, "cpu": nodes_usage_cpu, "disk": nodes_usage_disk}
+            proxlb_data.meta.statistics["after"] = {BalancingResource.Memory: nodes_usage_memory, BalancingResource.Cpu: nodes_usage_cpu, BalancingResource.Disk: nodes_usage_disk}
         else:
-            proxlb_data.meta.statistics = {"after": {"memory": nodes_usage_memory, "cpu": nodes_usage_cpu, "disk": nodes_usage_disk}}
+            proxlb_data.meta.statistics = {"after": {BalancingResource.Memory: nodes_usage_memory, BalancingResource.Cpu: nodes_usage_cpu, BalancingResource.Disk: nodes_usage_disk}}
 
         logger.debug(f"Nodes usage memory: {nodes_usage_memory}")
         logger.debug(f"Nodes usage memory assigned: {nodes_assigned_memory}")

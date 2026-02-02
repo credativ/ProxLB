@@ -18,6 +18,8 @@ from .ha_rules import HaRules
 from .tags import Tags
 import time
 
+GuestType = Config.GuestType
+
 logger = SystemdLogger()
 
 
@@ -72,7 +74,7 @@ class Guests:
             for guest in proxmox_api.nodes(node).qemu.get():
                 if guest['status'] == 'running':
 
-                    guest_tags = Tags.get_tags_from_guests(proxmox_api, node, guest['vmid'], 'vm')
+                    guest_tags = Tags.get_tags_from_guests(proxmox_api, node, guest['vmid'], GuestType.Vm)
                     guest_pools = Pools.get_pools_for_guest(guest['name'], pools)
                     guest_ha_rules = HaRules.get_ha_rules_for_guest(guest['name'], ha_rules, guest['vmid'])
 
@@ -118,7 +120,7 @@ class Guests:
                         ignore=Tags.get_ignore(guest_tags),
                         node_relationships=Tags.get_node_relationships(guest_tags, nodes, guest_pools, guest_ha_rules, proxlb_config),
                         node_relationships_strict=Pools.get_pool_node_affinity_strictness(proxlb_config, guest_pools),
-                        type='vm',
+                        type=GuestType.Vm,
                     )
 
                     logger.debug(f"Resources of Guest {guest['name']} (type VM) added: {guests[guest['name']]}")
@@ -131,7 +133,7 @@ class Guests:
             for guest in proxmox_api.nodes(node).lxc.get():
                 if guest['status'] == 'running':
 
-                    guest_tags = Tags.get_tags_from_guests(proxmox_api, node, guest['vmid'], 'ct')
+                    guest_tags = Tags.get_tags_from_guests(proxmox_api, node, guest['vmid'], GuestType.Ct)
                     guest_pools = Pools.get_pools_for_guest(guest['name'], pools)
                     guest_ha_rules = HaRules.get_ha_rules_for_guest(guest['name'], ha_rules, guest['vmid'])
 
@@ -177,7 +179,7 @@ class Guests:
                         ignore=Tags.get_ignore(guest_tags),
                         node_relationships=Tags.get_node_relationships(guest_tags, nodes, guest_pools, guest_ha_rules, proxlb_config),
                         node_relationships_strict=Pools.get_pool_node_affinity_strictness(proxlb_config, guest_pools),
-                        type='ct',
+                        type=GuestType.Ct,
                     )
 
                     logger.debug(f"Resources of Guest {guest['name']} (type CT) added: {guests[guest['name']]}")

@@ -23,10 +23,12 @@ __license__ = "GPL-3.0"
 
 import time
 from typing import Dict
-from ..utils.config_parser import Config, ResourceType
+from ..utils.config_parser import Config
 from ..utils.logger import SystemdLogger
 from ..utils.proxlb_data import ProxLbData
 from ..utils.proxmox_api import ProxmoxApi
+
+BalancingResource = Config.Balancing.Resource
 
 logger = SystemdLogger()
 
@@ -106,7 +108,7 @@ class Nodes:
                         pressure_hot=False,
                     ),
                     memory=ProxLbData.Node.Metric(
-                        total=Nodes.set_node_resource_reservation(node["node"], node["maxmem"], proxlb_config, "memory"),
+                        total=Nodes.set_node_resource_reservation(node["node"], node["maxmem"], proxlb_config, BalancingResource.Memory),
                         assigned=0,
                         used=memory_used,
                         free=memory_free,
@@ -279,7 +281,7 @@ class Nodes:
         return ret
 
     @staticmethod
-    def set_node_resource_reservation(node_name: str, resource_value: int, proxlb_config: Config, resource_type: ResourceType) -> int:
+    def set_node_resource_reservation(node_name: str, resource_value: int, proxlb_config: Config, resource_type: BalancingResource) -> int:
         """
         Check if there is a configured resource reservation for the current node and apply it as needed.
         Checks for a node specific config first, then if there is any configured default and if neither then nothing is reserved.

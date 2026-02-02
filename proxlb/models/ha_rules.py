@@ -8,10 +8,13 @@ __copyright__ = "Copyright (C) 2025 Florian Paul Azim Hoberg (@gyptazy)"
 __license__ = "GPL-3.0"
 
 
-from typing import Dict, List, Literal
+from typing import Dict, List
 from ..utils.logger import SystemdLogger
+from ..utils.config_parser import Config
 from ..utils.proxlb_data import ProxLbData
 from ..utils.proxmox_api import ProxmoxApi
+
+AffinityType = Config.AffinityType
 
 logger = SystemdLogger()
 
@@ -77,11 +80,11 @@ class HaRules:
             resources_list_guests = [int(r.split(":")[1]) for r in rule["resources"].split(",") if r.strip()]
 
             # Convert the affinity field to a more descriptive type
-            affinity_type: Literal["affinity", "anti-affinity"]
+            affinity_type: AffinityType
             if rule.get("affinity", None) == "negative":
-                affinity_type = "anti-affinity"
+                affinity_type = AffinityType.NegativeAffinity
             else:
-                affinity_type = "affinity"
+                affinity_type = AffinityType.PositiveAffinity
 
             # Create affected nodes list
             resources_list_nodes = []

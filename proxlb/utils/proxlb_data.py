@@ -1,8 +1,12 @@
 from typing import Any, Literal, Optional, TypeVar, assert_never
 from pydantic import BaseModel
-from .config_parser import Config, ResourceType
+from .config_parser import Config
 
 ConfigType = TypeVar("ConfigType", bound="Config")
+
+BalancingResource = Config.Balancing.Resource
+AffinityType = Config.AffinityType
+GuestType = Config.GuestType
 
 
 class ProxLbData(BaseModel):
@@ -22,7 +26,7 @@ class ProxLbData(BaseModel):
         statistics: Optional[
             dict[
                 Literal["before", "after"],
-                dict[ResourceType, str]
+                dict[BalancingResource, str]
             ]
         ] = None
 
@@ -76,14 +80,14 @@ class ProxLbData(BaseModel):
         ignore: bool
         node_relationships: list[str]
         node_relationships_strict: bool
-        type: Literal["vm", "ct"]
+        type: GuestType
 
-        def metric(self, name: Literal["cpu", "disk", "memory"]) -> Metric:
-            if name == "cpu":
+        def metric(self, name: BalancingResource) -> Metric:
+            if name == BalancingResource.Cpu:
                 return self.cpu
-            if name == "disk":
+            if name == BalancingResource.Disk:
                 return self.disk
-            if name == "memory":
+            if name == BalancingResource.Memory:
                 return self.memory
             assert_never(name)
 
@@ -109,12 +113,12 @@ class ProxLbData(BaseModel):
         disk: Metric
         memory: Metric
 
-        def metric(self, name: Literal["cpu", "disk", "memory"]) -> Metric:
-            if name == "cpu":
+        def metric(self, name: BalancingResource) -> Metric:
+            if name == BalancingResource.Cpu:
                 return self.cpu
-            if name == "disk":
+            if name == BalancingResource.Disk:
                 return self.disk
-            if name == "memory":
+            if name == BalancingResource.Memory:
                 return self.memory
             assert_never(name)
 
@@ -124,7 +128,7 @@ class ProxLbData(BaseModel):
 
     class HaRule(BaseModel):
         rule: str
-        type: Literal["affinity", "anti-affinity"]
+        type: AffinityType
         nodes: list[str]
         members: list[int]
 

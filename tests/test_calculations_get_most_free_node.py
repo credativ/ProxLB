@@ -9,7 +9,10 @@ __license__ = "GPL-3.0"
 
 
 from proxlb.models.calculations import Calculations
+from proxlb.utils.config_parser import Config
 from .utils import MINIMAL_DATA, create_node
+
+BalancingResource = Config.Balancing.Resource
 
 
 def test_get_most_free_node_crash_repro_fix24() -> None:
@@ -21,8 +24,8 @@ def test_get_most_free_node_crash_repro_fix24() -> None:
     proxlb_data = MINIMAL_DATA.model_copy()
     proxlb_data.nodes = {"node1": node1, "node2": node2}
 
-    node1.metric("memory").used_percent = 10
-    node2.metric("memory").used_percent = 20
+    node1.metric(BalancingResource.Memory).used_percent = 10
+    node2.metric(BalancingResource.Memory).used_percent = 20
 
     assert Calculations.get_most_free_node(proxlb_data=proxlb_data) is node1
     assert proxlb_data.meta.balancing.balance_next_node is node1.name
