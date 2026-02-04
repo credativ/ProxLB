@@ -113,23 +113,39 @@ ProxLB is a powerful and flexible load balancer designed to work across various 
 You can simply use this snippet to install the repository and to install ProxLB on your system.
 
 ```bash
-echo "deb https://repo.gyptazy.com/stable /" > /etc/apt/sources.list.d/proxlb.list
-wget -O /etc/apt/trusted.gpg.d/proxlb.asc https://repo.gyptazy.com/repository.gpg
-apt-get update && apt-get -y install proxlb
-cp /etc/proxlb/proxlb_example.yaml /etc/proxlb/proxlb.yaml
+# Add GPG key
+curl -fsSL https://packages.credativ.com/public/proxtools/public.key \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/proxtools-archive-keyring.gpg
+
+# Add repository
+echo "deb [signed-by=/etc/apt/keyrings/proxtools-archive-keyring.gpg] \
+https://packages.credativ.com/public/proxtools stable main" \
+| sudo tee /etc/apt/sources.list.d/proxlb.list
+
+# Update & install
+sudo apt-get update
+sudo apt-get -y install proxlb
+
+# Copy example config
+sudo cp /etc/proxlb/proxlb_example.yaml /etc/proxlb/proxlb.yaml
+
 # Adjust the config to your needs
-vi /etc/proxlb/proxlb.yaml
-systemctl start proxlb
+sudo vi /etc/proxlb/proxlb.yaml
+
+# Start service
+sudo systemctl start proxlb
+
+# Adjust the config to your needs
+sudo vi /etc/proxlb/proxlb.yaml
+sudo systemctl start proxlb
 ```
 
 Afterwards, ProxLB is running in the background and balances your cluster by your defined balancing method (default: memory).
 
-**Note**: If you want to use ProxLB with the proxmox-offline-mirror or any other APT mirror tool that does not support the flat repository architecture, please see the [docs](https://github.com/gyptazy/ProxLB/blob/main/docs/02_installation.md#Repo-Mirror-and-Proxmox-Offline-Mirror-Support) how you can add this by using ProxLB's fully repo.
-
 #### Details
 ProxLB provides two different repositories:
-* https://repo.gyptazy.com/stable (only stable release)
-* https://repo.gyptazy.com/testing (bleeding edge - not recommended)
+* https://packages.credativ.com/public/proxtools stable main
+* https://packages.credativ.com/public/proxtools snapshots main
 
 The repository is signed and the GPG key can be found at:
 * https://repo.gyptazy.com/repository.gpg
@@ -137,26 +153,11 @@ The repository is signed and the GPG key can be found at:
 You can also simply import it by running:
 
 ```
-# KeyID:  17169F23F9F71A14AD49EDADDB51D3EB01824F4C
-# UID:    gyptazy Solutions Repository <contact@gyptazy.com>
-# SHA256: 52c267e6f4ec799d40cdbdb29fa518533ac7942dab557fa4c217a76f90d6b0f3  repository.gpg
+# KeyID:  34C5B9642CD591E5D090A03B062A8A3A410B831D
+# UID:    Proxtools Repository Signer <info@credativ.de>
+# SHA256: 4cb4a74b25f775616709eb0596eeeac61d8d28717f4872fef2d68fb558434ed3  public.key
 
-wget -O /etc/apt/trusted.gpg.d/proxlb.asc https://repo.gyptazy.com/repository.gpg
-```
-
-*Note: The defined repositories `repo.gyptazy.com` and `repo.proxlb.de` are the same!*
-
-#### Debian Packages (.deb files)
-If you do not want to use the repository you can also find the debian packages as a .deb file on gyptazy's CDN at:
-* https://cdn.gyptazy.com/debian/proxlb/
-
-Afterwards, you can simply install the package by running:
-```bash
-dpkg -i proxlb_*.deb
-cp /etc/proxlb/proxlb_example.yaml /etc/proxlb/proxlb.yaml
-# Adjust the config to your needs
-vi /etc/proxlb/proxlb.yaml
-systemctl start proxlb
+wget -O /etc/apt/keyrings/proxtools-archive-keyring.gpg https://packages.credativ.com/public/proxtools/public.key
 ```
 
 ### Container Images / Docker
@@ -166,7 +167,7 @@ Using the ProxLB container images is straight forward and only requires you to m
 # Pull the image
 docker pull cr.gyptazy.com/proxlb/proxlb:latest
 # Download the config
-wget -O proxlb.yaml https://raw.githubusercontent.com/gyptazy/ProxLB/refs/heads/main/config/proxlb_example.yaml
+wget -O proxlb.yaml https://raw.githubusercontent.com/credativ/ProxLB/refs/heads/main/config/proxlb_example.yaml
 # Adjust the config to your needs
 vi proxlb.yaml
 # Start the ProxLB container image with the ProxLB config
@@ -184,35 +185,6 @@ services:
     volumes:
       - ./proxlb.yaml:/etc/proxlb/proxlb.yaml:ro
 ```
-
-*Note: ProxLB container images are officially only available at cr.proxlb.de and cr.gyptazy.com.*
-
-#### Overview of Images
-| Version | Image |
-|------|:------:|
-| latest | cr.gyptazy.com/proxlb/proxlb:latest |
-| v1.1.12 | cr.gyptazy.com/proxlb/proxlb:v1.1.12 |
-| v1.1.11 | cr.gyptazy.com/proxlb/proxlb:v1.1.11 |
-| v1.1.10 | cr.gyptazy.com/proxlb/proxlb:v1.1.10 |
-| v1.1.9.1 | cr.gyptazy.com/proxlb/proxlb:v1.1.9.1 |
-| v1.1.9 | cr.gyptazy.com/proxlb/proxlb:v1.1.9 |
-| v1.1.8 | cr.gyptazy.com/proxlb/proxlb:v1.1.8 |
-| v1.1.7 | cr.gyptazy.com/proxlb/proxlb:v1.1.7 |
-| v1.1.6.1 | cr.gyptazy.com/proxlb/proxlb:v1.1.6.1 |
-| v1.1.6 | cr.gyptazy.com/proxlb/proxlb:v1.1.6 |
-| v1.1.5 | cr.gyptazy.com/proxlb/proxlb:v1.1.5 |
-| v1.1.4 | cr.gyptazy.com/proxlb/proxlb:v1.1.4 |
-| v1.1.3 | cr.gyptazy.com/proxlb/proxlb:v1.1.3 |
-| v1.1.2 | cr.gyptazy.com/proxlb/proxlb:v1.1.2 |
-| v1.1.1 | cr.gyptazy.com/proxlb/proxlb:v1.1.1 |
-| v1.1.0 | cr.gyptazy.com/proxlb/proxlb:v1.1.0 |
-| v1.0.6 | cr.gyptazy.com/proxlb/proxlb:v1.0.6 |
-| v1.0.5 | cr.gyptazy.com/proxlb/proxlb:v1.0.5 |
-| v1.0.4 | cr.gyptazy.com/proxlb/proxlb:v1.0.4 |
-| v1.0.3 | cr.gyptazy.com/proxlb/proxlb:v1.0.3 |
-| v1.0.2 | cr.gyptazy.com/proxlb/proxlb:v1.0.2 |
-| v1.0.0 | cr.gyptazy.com/proxlb/proxlb:v1.0.0 |
-| v0.9.9 | cr.gyptazy.com/proxlb/proxlb:v0.9.9 |
 
 ### Source
 ProxLB can also easily be used from the provided sources - for traditional systems but also as a Docker/Podman container image.
@@ -255,17 +227,6 @@ docker run -it --rm -v $(pwd)/proxlb.yaml:/etc/proxlb/proxlb.yaml proxlb
 
 ## Usage / Configuration
 Running ProxLB is straightforward and versatile, as it only requires `Python3` and the `proxmoxer` library. This means ProxLB can be executed directly on a Proxmox node or on dedicated systems such as Debian, RedHat, or even FreeBSD, provided that the Proxmox API is accessible from the client running ProxLB. ProxLB can also run inside a Container - Docker or LXC - and is simply up to you.
-
-### Proxmox HA Integration
-Proxmox HA (High Availability) groups are designed to ensure that virtual machines (VMs) remain running within a Proxmox cluster. HA groups define specific rules for where VMs should be started or migrated in case of node failures, ensuring minimal downtime and automatic recovery.
-
-However, when used in conjunction with ProxLB, the built-in load balancer for Proxmox, conflicts can arise. ProxLB operates with its own logic for workload distribution, taking into account affinity and anti-affinity rules. While it effectively balances guest workloads, it may re-shift and redistribute VMs in a way that does not align with HA group constraints, potentially leading to unsuitable placements.
-
-Due to these conflicts, it is currently not recommended to use both HA groups and ProxLB simultaneously. The interaction between the two mechanisms can lead to unexpected behavior, where VMs might not adhere to HA group rules after being moved by ProxLB.
-
-A solution to improve compatibility between HA groups and ProxLB is under evaluation, aiming to ensure that both features can work together without disrupting VM placement strategies.
-
-See also: [#65: Host groups: Honour HA groups](https://github.com/gyptazy/ProxLB/issues/65).
 
 ### Options
 The following options can be set in the configuration file `proxlb.yaml`:
@@ -539,7 +500,7 @@ Afterwards, all guest objects will be moved to other nodes in the cluster by ens
 
 ## Misc
 ### Bugs
-Bugs can be reported via the GitHub issue tracker [here](https://github.com/gyptazy/ProxLB/issues). You may also report bugs via email or deliver PRs to fix them on your own. Therefore, you might also see the contributing chapter.
+Bugs can be reported via the GitHub issue tracker [here](https://github.com/credativ/ProxLB/issues). You may also report bugs via email or deliver PRs to fix them on your own. Therefore, you might also see the contributing chapter.
 
 ### Contributing
 Feel free to add further documentation, to adjust already existing one or to contribute with code. Please take care about the style guide and naming conventions. You can find more in our [CONTRIBUTING.md](https://github.com/gyptazy/ProxLB/blob/main/CONTRIBUTING.md) file.
