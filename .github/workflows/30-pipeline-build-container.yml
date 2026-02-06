@@ -11,10 +11,45 @@ permissions:
   packages: write
 
 jobs:
-  docker:
-    runs-on: ubuntu-latest
-    # Use 'pull-request' environment on PRs to prevent running Actions from non-maintainer
-    environment: ${{ github.event_name == 'pull_request' && 'pull-request' || '' }}
+  pull-request:
+    if: github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          platforms: linux/${{ matrix.arch }}
+          tags: pull-request:${{ github.sha }}-${{ matrix.arch }}
+          outputs: type=docker,dest=/tmp/${{ github.event.repository.name }}-${{ matrix.arch }}.tar
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.repository.name }}-${{ github.sha }}-${{ matrix.arch }}
+          path: /tmp/${{ github.event.repository.name }}-${{ matrix.arch }}.tar
+          retention-days: 7
+
+  release:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
