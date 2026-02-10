@@ -75,7 +75,7 @@ ProxLB provides two different repositories:
 * https://packages.credativ.com/public/proxtools snapshots main
 
 The repository is signed and the GPG key can be found at:
-* https://repo.gyptazy.com/repository.gpg
+* https://packages.credativ.com/public/proxtools/archive-keyring.gpg
 
 You can also simply import it by running:
 
