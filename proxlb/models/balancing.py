@@ -175,7 +175,7 @@ class Balancing:
 
         try:
             logger.info(f"Balancing: Starting to migrate VM guest {guest_name} from {guest_node_current} to {guest_node_target}.")
-            job_id = proxmox_api.nodes(guest_node_current).qemu(guest_id).migrate().post(**migration_options)
+            job_id = proxmox_api.nodes(guest_node_current).qemu(guest_id).migrate.post.model(**migration_options)
         except proxmoxer.core.ResourceException as proxmox_api_error:
             logger.critical(f"Balancing: Failed to migrate guest {guest_name} of type VM due to some Proxmox errors. Please check if resource is locked or similar.")
             logger.debug(f"Balancing: Failed to migrate guest {guest_name} of type VM due to some Proxmox errors: {proxmox_api_error}")
@@ -206,7 +206,7 @@ class Balancing:
 
         try:
             logger.info(f"Balancing: Starting to migrate CT guest {guest_name} from {guest_node_current} to {guest_node_target}.")
-            job_id = proxmox_api.nodes(guest_node_current).lxc(guest_id).migrate().post(target=guest_node_target, restart=1)
+            job_id = proxmox_api.nodes(guest_node_current).lxc(guest_id).migrate.post(target=guest_node_target, restart=1)
         except proxmoxer.core.ResourceException as proxmox_api_error:
             logger.critical(f"Balancing: Failed to migrate guest {guest_name} of type CT due to some Proxmox errors. Please check if resource is locked or similar.")
             logger.debug(f"Balancing: Failed to migrate guest {guest_name} of type CT due to some Proxmox errors: {proxmox_api_error}")
@@ -230,25 +230,28 @@ class Balancing:
             bool: True if the job completed successfully, False otherwise.
         """
         logger.debug("Starting: get_rebalancing_job_status.")
-        job = proxmox_api.nodes(guest_current_node).tasks(job_id).status().get()
+        job = proxmox_api.nodes(guest_current_node).tasks(job_id).status.get.model()
+
+        job_status: str | None = job.status
 
         # Fetch actual migration job status if this got spawned by a HA job
-        if job["type"] == "hamigrate":
+        if job.type == "hamigrate":
             logger.debug(f"Balancing: Job ID {job_id} (guest: {guest_name}) is a HA migration job. Fetching underlying migration job...")
             time.sleep(1)
-            vm_id = int(job["id"])
-            qm_migrate_jobs = proxmox_api.nodes(guest_current_node).tasks.get(typefilter="qmigrate", vmid=vm_id, start=0, source="active", limit=1)
+            vm_id = int(job.id)
+            qm_migrate_jobs = proxmox_api.nodes(guest_current_node).tasks.get.model(typefilter="qmigrate", vmid=vm_id, start=0, source="active", limit=1)
 
             if len(qm_migrate_jobs) > 0:
-                job = qm_migrate_jobs[0]
-                job_id = job["upid"]
-                logger.debug(f'Overwriting job polling for: ID {job_id} (guest: {guest_name}) by {job}')
+                qmjob = qm_migrate_jobs[0]
+                job_id = qmjob.upid
+                job_status = qmjob.status
+                logger.debug(f'Overwriting job polling for: ID {job_id} (guest: {guest_name}) by {qmjob}')
         else:
             logger.debug(f"Balancing: Job ID {job_id} (guest: {guest_name}) is a standard migration job. Proceeding with status check.")
 
         # Watch job id until it finalizes
         # Note: Unsaved jobs are delivered in uppercase from Proxmox API
-        if job.get("status", "").lower() == "running":
+        if job_status and job_status.lower() == "running":
             # Do not hammer the API while
             # watching the job status
             time.sleep(10)
@@ -264,9 +267,9 @@ class Balancing:
                 return False
 
         # Validate job output for errors when finished
-        if job["status"] == "stopped":
+        if job_status == "stopped":
 
-            if job["exitstatus"] == "OK":
+            if job.exitstatus == "OK":
                 logger.debug(f"Balancing: Job ID {job_id} (guest: {guest_name}) was successfully.")
                 logger.debug("Finished: get_rebalancing_job_status.")
                 return True

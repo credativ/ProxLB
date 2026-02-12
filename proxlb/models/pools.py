@@ -60,26 +60,26 @@ class Pools:
         # Pool objects: iterate over all pools in the cluster.
         # We keep pool members even if their nodes are ignored so resource accounting
         # for rebalancing remains correct and we avoid overprovisioning nodes.
-        for pool in proxmox_api.pools.get():
-            logger.debug(f"Got pool: {pool['poolid']}")
-            pools[pool['poolid']] = ProxLbData.Pool(name=pool['poolid'])
+        for pool in proxmox_api.pools.get.model():
+            logger.debug(f"Got pool: {pool.poolid}")
+            pools[pool.poolid] = ProxLbData.Pool(name=pool.poolid)
 
             # Fetch pool details and collect member names
             try:
-                pool_details = proxmox_api.pools(pool['poolid']).get()
+                pool_details = proxmox_api.pools(pool.poolid).get.model()
             except Exception as e:
-                logger.error(f"Error fetching pool details for pool {pool['poolid']}: {e}")
+                logger.error(f"Error fetching pool details for pool {pool.poolid}: {e}")
                 continue
 
-            for member in pool_details.get("members", []):
+            for member in pool_details.members:
 
                 # We might also have objects without the key "name", e.g. storage pools
-                if "name" not in member:
-                    logger.debug(f"Skipping member without name in pool: {pool['poolid']}")
+                if not member.name:
+                    logger.debug(f"Skipping member without name in pool: {pool.poolid}")
                     continue
 
-                logger.debug(f"Got member: {member['name']} for pool: {pool['poolid']}")
-                pools[pool['poolid']].members.append(member['name'])
+                logger.debug(f"Got member: {member.name} for pool: {pool.poolid}")
+                pools[pool.poolid].members.append(member.name)
 
         logger.debug("Finished: get_pools.")
         return pools

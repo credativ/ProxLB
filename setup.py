@@ -15,6 +15,7 @@ setup(
         "requests",
         "urllib3",
         "proxmoxer",
+        "proxmoxer-stubs",
         "pydantic",
         "pyyaml",
     ],

@@ -73,11 +73,11 @@ class Tags:
         time.sleep(0.1)
         api_tags: str
         if guest_type == GuestType.Vm:
-            guest_config = proxmox_api.nodes(node).qemu(guest_id).config.get()
-            api_tags = guest_config.get("tags", "")
+            qemu_guest_config = proxmox_api.nodes(node).qemu(guest_id).config.get.model()
+            api_tags = qemu_guest_config.tags or ""
         elif guest_type == GuestType.Ct:
-            guest_config = proxmox_api.nodes(node).lxc(guest_id).config.get()
-            api_tags = guest_config.get("tags", "")
+            lxc_guest_config = proxmox_api.nodes(node).lxc(guest_id).config.get.model()
+            api_tags = lxc_guest_config.tags or ""
         else:
             assert_never(guest_type)
 

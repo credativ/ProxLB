@@ -16,6 +16,7 @@ __license__ = "GPL-3.0"
 import errno
 try:
     import proxmoxer
+    import proxmoxer_types.v9
     import proxmoxer.backends.https
     PROXMOXER_PRESENT = True
 except ImportError:
@@ -34,7 +35,7 @@ try:
     URLLIB3_PRESENT = True
 except ImportError:
     URLLIB3_PRESENT = False
-from typing import Any, Optional
+from typing import Optional
 from .helper import Helper
 from .logger import SystemdLogger
 from .config_parser import Config
@@ -54,6 +55,7 @@ if not REQUESTS_PRESENT:
     sys.exit(1)
 
 import proxmoxer
+import proxmoxer_types.v9  # noqa: F811 # keep for pyright
 import requests  # noqa: F811 # keep for pyright
 import urllib3  # noqa: F811 # keep for pyright
 
@@ -115,11 +117,17 @@ class ProxmoxApi:
         self.test_api_user_permissions(self.proxmox_api)
         logger.debug("Finished: ProxmoxApi initialization.")
 
-    def __getattr__(self, name: str) -> Any:
-        """
-        Delegate attribute access to proxmox_api to the underlying proxmoxer module.
-        """
-        return getattr(self.proxmox_api, name)
+    @property
+    def cluster(self) -> "proxmoxer_types.v9.ProxmoxAPI.Cluster":
+        return self.proxmox_api.cluster
+
+    @property
+    def nodes(self) -> "proxmoxer_types.v9.ProxmoxAPI.Nodes":
+        return self.proxmox_api.nodes
+
+    @property
+    def pools(self) -> "proxmoxer_types.v9.ProxmoxAPI.Pools":
+        return self.proxmox_api.pools
 
     def validate_config(self, proxlb_config: Config) -> None:
         """
@@ -320,7 +328,7 @@ class ProxmoxApi:
         logger.debug("Finished: test_api_proxmox_host_ipv6.")
         return False
 
-    def test_api_user_permissions(self, proxmox_api: proxmoxer.ProxmoxAPI) -> None:
+    def test_api_user_permissions(self, proxmox_api: proxmoxer_types.v9.ProxmoxAPI) -> None:
         """
         Test the permissions of the current user/token used for the Proxmox API.
 
@@ -359,7 +367,7 @@ class ProxmoxApi:
 
         logger.debug("Finished: test_api_user_permissions.")
 
-    def api_connect(self, proxlb_config: Config) -> proxmoxer.ProxmoxAPI:
+    def api_connect(self, proxlb_config: Config) -> proxmoxer_types.v9.ProxmoxAPI:
         """
         Establishes a connection to the Proxmox API using the provided configuration.
 
@@ -397,7 +405,7 @@ class ProxmoxApi:
         try:
 
             if proxlb_config.proxmox_api.token_secret:
-                proxmox_api = proxmoxer.ProxmoxAPI(
+                proxmox_api = proxmoxer_types.v9.ProxmoxAPI(
                     proxmox_api_endpoint.host,
                     port=proxmox_api_endpoint.port,
                     user=proxlb_config.proxmox_api.username,
@@ -407,7 +415,7 @@ class ProxmoxApi:
                     timeout=proxlb_config.proxmox_api.timeout)
                 logger.debug("Using API token authentication.")
             else:
-                proxmox_api = proxmoxer.ProxmoxAPI(
+                proxmox_api = proxmoxer_types.v9.ProxmoxAPI(
                     proxmox_api_endpoint.host,
                     port=proxmox_api_endpoint.port,
                     user=proxlb_config.proxmox_api.username,
