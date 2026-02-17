@@ -12,10 +12,11 @@ setup(
     url="https://github.com/gyptazy/ProxLB",
     packages=["proxlb", "proxlb.utils", "proxlb.models"],
     install_requires=[
-        "requests",
-        "urllib3",
+        "packaging",
         "proxmoxer",
         "pyyaml",
+        "requests",
+        "urllib3",
     ],
         data_files=[('/etc/systemd/system', ['service/proxlb.service']), ('/etc/proxlb/', ['config/proxlb_example.yaml'])],
 )
