@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [1.1.13] - 2026-02-18
+
+### Added
+
+- Add packaging dependency
+- Adds new container build workflows
+
+### Changed
+
+- Replaces old registry with GHCR
+- Builds in PR and push artifact
+- Uses docker buildx for tar output
+- Replaces images overview with link to packages page
+- Ensure snapshots don't contain ubuntu in their name
+- Replace Debian repository. Switch from cr.gyptazy.com to packages.credativ.com
+
+### Fixed
+
+- Adjust repo gpg key
+
+### Removed
+
+- Removes old container build workflows
+
+
 ## [1.1.12] - 2026-01-28
 
 ### Fixed

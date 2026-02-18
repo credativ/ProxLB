@@ -1,0 +1,17 @@
+changed:
+  - Replaces old registry with GHCR
+  - Builds in PR and push artifact
+  - Uses docker buildx for tar output
+  - Replaces images overview with link to packages page
+  - Ensure snapshots don't contain ubuntu in their name
+  - Replace Debian repository. Switch from cr.gyptazy.com to packages.credativ.com
+
+removed:
+- Removes old container build workflows
+
+added:
+- Add packaging dependency
+- Adds new container build workflows
+
+fixed:
+- Adjust repo gpg key

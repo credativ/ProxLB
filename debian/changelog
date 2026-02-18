@@ -1,3 +1,25 @@
+proxlb (1.1.13) stable; urgency=medium
+
+  [ Dominic Brekau ]
+  * Removes old container build workflows
+  * Adds new container build workflows
+  * docs: Replaces old registry with GHCR
+  * Builds in PR and push artifact
+  * Uses docker buildx for tar output
+  * Replaces images overview with link to packages page
+
+  [ Alexander Wirt ]
+  * Ensure snapshots don't contain ubuntu in their name
+
+  [ gyptazy ]
+  * docs: Replace Debian repository   Switch from cr.gyptazy.com to packages.credativ.com
+  * fix: Adjust repo gpg key
+
+  [ Damian Lukowski ]
+  * Add packaging dependency
+
+ -- Damian Lukowski <damian.lukowski@credativ.de>  Wed, 18 Feb 2026 10:13:02 +0100
+
 proxlb (1.1.12) stable; urgency=medium
 
   * Fix PSI based balancing which resulted in a Python KeyError. (Closes: #420)
