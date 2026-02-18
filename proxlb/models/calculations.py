@@ -523,10 +523,23 @@ class Calculations:
                         break
 
                     if not Calculations.validate_node_resources(proxlb_data, guest_name):
-                        if proxlb_data['meta']['balancing'].get('balance_next_node', None) is None:
-                            logger.warning(f"Skipping relocation of guest {guest_name} due to no target node defined. This might affect affinity group {group_name}.")
+                        node_target = proxlb_data['meta']['balancing'].get('balance_next_node', None)
+                        group_members = proxlb_data["groups"]["affinity"][group_name].get("guests", [])
+                        other_members = [g for g in group_members if g != guest_name]
+                        co_members_str = f", co-located with: {', '.join(other_members)}" if other_members else ""
+
+                        if node_target is None:
+                            logger.warning(
+                                f"Skipping relocation of guest '{guest_name}': no target node available{co_members_str}."
+                            )
                         else:
-                            logger.warning(f"Skipping relocation of guest {guest_name} due to insufficient resources on target node {proxlb_data['meta']['balancing']['balance_next_node']}. This might affect affinity group {group_name}.")
+                            node_mem_free_gb = proxlb_data["nodes"][node_target]["memory_free"] / (1024 ** 3)
+                            guest_mem_needed_gb = proxlb_data["guests"][guest_name]["memory_used"] / (1024 ** 3)
+                            logger.warning(
+                                f"Skipping relocation of guest '{guest_name}': "
+                                f"node '{node_target}' has {node_mem_free_gb:.2f} GB RAM free "
+                                f"but guest needs {guest_mem_needed_gb:.2f} GB{co_members_str}."
+                            )
                         continue
 
                     if mode == 'psi':
