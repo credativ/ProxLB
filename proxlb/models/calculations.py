@@ -128,11 +128,22 @@ class Calculations:
                 is_hot = (pressure_full >= threshold["pressure_full"] and pressure_some >= threshold["pressure_some"]) or (pressure_spikes >= threshold["pressure_spikes"])
 
                 if is_hot:
-                    logger.debug(f"Set node {node['name']} as hot based on {metric} pressure metrics.")
+                    logger.info(
+                        f"Node '{node['name']}' is HOT for {metric}: "
+                        f"pressure_full={pressure_full:.2f}% (threshold={threshold['pressure_full']}%), "
+                        f"pressure_some={pressure_some:.2f}% (threshold={threshold['pressure_some']}%), "
+                        f"pressure_spikes={pressure_spikes:.2f}% (threshold={threshold['pressure_spikes']}%). "
+                        f"Balancing will be triggered."
+                    )
                     proxlb_data["nodes"][node["name"]][f"{metric}_pressure_hot"] = True
                     proxlb_data["nodes"][node["name"]][f"pressure_hot"] = True
                 else:
-                    logger.debug(f"Node {node['name']} is not hot based on {metric} pressure metrics.")
+                    logger.debug(
+                        f"Node '{node['name']}' is OK for {metric}: "
+                        f"pressure_full={pressure_full:.2f}% (threshold={threshold['pressure_full']}%), "
+                        f"pressure_some={pressure_some:.2f}% (threshold={threshold['pressure_some']}%), "
+                        f"pressure_spikes={pressure_spikes:.2f}% (threshold={threshold['pressure_spikes']}%)."
+                    )
 
         logger.debug("Finished: set_node_hot.")
         return proxlb_data
@@ -161,11 +172,22 @@ class Calculations:
                 is_hot = (pressure_full >= threshold["pressure_full"] and pressure_some >= threshold["pressure_some"]) or (pressure_spikes >= threshold["pressure_spikes"])
 
                 if is_hot:
-                    logger.debug(f"Set guest {guest['name']} as hot based on {metric} pressure metrics.")
+                    logger.info(
+                        f"Guest '{guest['name']}' is HOT for {metric}: "
+                        f"pressure_full={pressure_full:.2f}% (threshold={threshold['pressure_full']}%), "
+                        f"pressure_some={pressure_some:.2f}% (threshold={threshold['pressure_some']}%), "
+                        f"pressure_spikes={pressure_spikes:.2f}% (threshold={threshold['pressure_spikes']}%). "
+                        f"Balancing will be triggered."
+                    )
                     proxlb_data["guests"][guest["name"]][f"{metric}_pressure_hot"] = True
                     proxlb_data["guests"][guest["name"]][f"pressure_hot"] = True
                 else:
-                    logger.debug(f"guest {guest['name']} is not hot based on {metric} pressure metrics.")
+                    logger.debug(
+                        f"Guest '{guest['name']}' is OK for {metric}: "
+                        f"pressure_full={pressure_full:.2f}% (threshold={threshold['pressure_full']}%), "
+                        f"pressure_some={pressure_some:.2f}% (threshold={threshold['pressure_some']}%), "
+                        f"pressure_spikes={pressure_spikes:.2f}% (threshold={threshold['pressure_spikes']}%)."
+                    )
 
         logger.debug("Finished: set_guest_hot.")
         return proxlb_data
@@ -255,11 +277,23 @@ class Calculations:
             method_value_highest = max(method_value)
             method_value_lowest = min(method_value)
 
-            if method_value_highest - method_value_lowest > balanciness:
+            highest_node = max(proxlb_data["nodes"].values(), key=lambda n: n.get(f"{method}_{mode}_percent", 0))
+            lowest_node = min(proxlb_data["nodes"].values(), key=lambda n: n.get(f"{method}_{mode}_percent", 0))
+            delta = method_value_highest - method_value_lowest
+
+            if delta > balanciness:
                 proxlb_data["meta"]["balancing"]["balance"] = True
-                logger.debug(f"Guest balancing is required. Highest value: {method_value_highest}, lowest value: {method_value_lowest} balanced by {method} and {mode}.")
+                logger.info(
+                    f"Balancing required: {method}/{mode} spread is {delta:.1f}% (allowed threshold={balanciness}%). "
+                    f"Most loaded: '{highest_node['name']}' ({method_value_highest:.1f}%), "
+                    f"least loaded: '{lowest_node['name']}' ({method_value_lowest:.1f}%)."
+                )
             else:
-                logger.debug(f"Guest balancing is ok. Highest value: {method_value_highest}, lowest value: {method_value_lowest} balanced by {method} and {mode}.")
+                logger.info(
+                    f"Cluster is balanced: {method}/{mode} spread is {delta:.1f}% (allowed threshold={balanciness}%). "
+                    f"Most loaded: '{highest_node['name']}' ({method_value_highest:.1f}%), "
+                    f"least loaded: '{lowest_node['name']}' ({method_value_lowest:.1f}%)."
+                )
 
         else:
             logger.warning("No guests for balancing found.")
@@ -316,22 +350,25 @@ class Calculations:
 
         if mode == "assigned":
             logger.debug(f"Get best node for balancing by assigned {method} resources.")
+            metric_key = f"{method}_{mode}_percent"
             lowest_usage_node = min(
-                filtered_nodes, key=lambda x: x.get(f"{method}_{mode}_percent", 100)
+                filtered_nodes, key=lambda x: x.get(metric_key, 100)
             )
 
         elif mode == "used":
             logger.debug(f"Get best node for balancing by used {method} resources.")
+            metric_key = f"{method}_{mode}_percent"
             lowest_usage_node = min(
-                filtered_nodes, key=lambda x: x.get(f"{method}_{mode}_percent", 100)
+                filtered_nodes, key=lambda x: x.get(metric_key, 100)
             )
         elif mode == "psi":
             logger.debug(
                 f"Get best node for balancing by pressure of {method} resources."
             )
+            metric_key = f"{method}_pressure_full_spikes_percent"
             lowest_usage_node = min(
                 filtered_nodes,
-                key=lambda x: x.get(f"{method}_pressure_full_spikes_percent", 100),
+                key=lambda x: x.get(metric_key, 100),
             )
 
         else:
@@ -347,7 +384,15 @@ class Calculations:
         else:
             proxlb_data["meta"]["balancing"]["balance_reason"] = "resources"
             proxlb_data["meta"]["balancing"]["balance_next_node"] = lowest_usage_node["name"]
-            logger.debug(f"Best node for balancing is: {lowest_usage_node['name']}.")
+            candidates_info = ", ".join(
+                f"{n['name']}={n.get(metric_key, 0):.1f}%"
+                for n in sorted(filtered_nodes, key=lambda x: x.get(metric_key, 0))
+            )
+            logger.debug(
+                f"Best target node: '{lowest_usage_node['name']}' "
+                f"({lowest_usage_node.get(metric_key, 0):.1f}% {method} {mode}). "
+                f"All candidates: [{candidates_info}]."
+            )
 
         # If executed to simply get the best node for further usage, we return
         # the best node on stdout and gracefully exit here
@@ -448,7 +493,14 @@ class Calculations:
 
                 # Validate balanciness again before processing each group
                 Calculations.get_balanciness(proxlb_data)
-                logger.debug(proxlb_data["meta"]["balancing"]["balance"])
+                balance_check = proxlb_data["meta"]["balancing"]["balance"]
+                bal_method = proxlb_data["meta"]["balancing"].get("method", "memory")
+                bal_mode = proxlb_data["meta"]["balancing"].get("mode", "used")
+                logger.debug(
+                    f"Balanciness re-check for group '{group_name}': "
+                    f"balancing {'required' if balance_check else 'not required'} "
+                    f"(method={bal_method}, mode={bal_mode})."
+                )
 
                 if (not proxlb_data["meta"]["balancing"]["balance"]) and (not proxlb_data["meta"]["balancing"].get("enforce_affinity", False)) and (not proxlb_data["meta"]["balancing"].get("enforce_pinning", False)):
                     logger.debug("Skipping further guest relocations as balanciness is now ok.")
@@ -474,7 +526,6 @@ class Calculations:
                         continue
 
                     if mode == 'psi':
-                        logger.debug(f"Evaluating guest relocation based on {mode} mode.")
                         method = proxlb_data["meta"]["balancing"].get("method", "memory")
                         processed_guests_psi = proxlb_data["meta"]["balancing"].setdefault("processed_guests_psi", [])
                         unprocessed_guests_psi = [guest for guest in proxlb_data["guests"].values() if guest["name"] not in processed_guests_psi]
@@ -486,9 +537,17 @@ class Calculations:
                         if highest_usage_guest["name"] == guest_name and guest_name not in proxlb_data["meta"]["balancing"]["processed_guests_psi"]:
                             proxlb_data["meta"]["balancing"]["processed_guests_psi"].append(guest_name)
                             proxlb_data["meta"]["balancing"]["balance_next_guest"] = guest_name
+                            logger.debug(
+                                f"PSI mode: selected guest '{guest_name}' (highest {method} pressure spike: "
+                                f"{highest_usage_guest.get(f'{method}_pressure_full_spikes_percent', 0):.2f}%) "
+                                f"on node '{source_node}' for relocation."
+                            )
 
                     else:
-                        logger.debug(f"Evaluating guest relocation based on {mode} mode.")
+                        logger.debug(
+                            f"Queuing guest '{guest_name}' (currently on '{source_node}') "
+                            f"for relocation evaluation (method={method}, mode={mode})."
+                        )
                         proxlb_data["meta"]["balancing"]["balance_next_guest"] = guest_name
 
                     Calculations.val_anti_affinity(proxlb_data, guest_name)
@@ -542,7 +601,7 @@ class Calculations:
                                 break
 
                         else:
-                            logger.critical(f"Node: {node_name} already got used for anti-affinity group:: {group_name}. (Tried for guest: {guest_name})")
+                            logger.debug(f"Node '{node_name}' already used in anti-affinity group '{group_name}'. Skipping for guest '{guest_name}'.")
                 else:
                     logger.debug(f"Anti-Affinity: Group has less than 2 members. Skipping node calculation for the group.")
 
@@ -631,6 +690,10 @@ class Calculations:
             logger.debug(f"No target node defined to update node resources for guest {guest_name}.")
             return
 
+        # Capture pre-migration node load for the migration log message
+        node_current_mem_pct_before = proxlb_data["nodes"][node_current].get("memory_used_percent", 0)
+        node_target_mem_pct_before = proxlb_data["nodes"][node_target].get("memory_used_percent", 0)
+
         # Update resources for the target node by the moved guest resources
         # Add assigned resources to the target node
         proxlb_data["nodes"][node_target]["cpu_assigned"] += proxlb_data["guests"][guest_name]["cpu_total"]
@@ -670,9 +733,19 @@ class Calculations:
         # Assign guest to the new target node
         if not proxlb_data["guests"][guest_name]["ignore"]:
             proxlb_data["guests"][guest_name]["node_target"] = node_target
-            logger.debug(f"Set guest {guest_name} from node {node_current} to node {node_target}.")
+            bal_method = proxlb_data["meta"]["balancing"].get("method", "memory")
+            bal_mode = proxlb_data["meta"]["balancing"].get("mode", "used")
+            guest_mem_gb = proxlb_data["guests"][guest_name]["memory_used"] / (1024 ** 3)
+            metric_key = f"{bal_method}_{bal_mode}_percent"
+            src_pct = proxlb_data["nodes"][node_current].get(metric_key, node_current_mem_pct_before)
+            tgt_pct = proxlb_data["nodes"][node_target].get(metric_key, node_target_mem_pct_before)
+            logger.info(
+                f"Migration plan: '{guest_name}' ({guest_mem_gb:.2f} GB RAM used) "
+                f"[{node_current}] ({bal_method} {src_pct:.1f}%) "
+                f"-> [{node_target}] ({bal_method} {tgt_pct:.1f}%)."
+            )
         else:
-            logger.debug(f"Guest {guest_name} is marked as ignored. Skipping target node assignment.")
+            logger.debug(f"Guest '{guest_name}' is marked as ignored. Skipping target node assignment.")
 
         Calculations.recalc_node_statistics(proxlb_data, node_target)
         Calculations.recalc_node_statistics(proxlb_data, node_current)
@@ -718,7 +791,7 @@ class Calculations:
             balancing_ok = balancing_state_affinity and balancing_state_anti_affinity
 
         if balancing_ok:
-            logger.debug(f"Rebalancing based on affinity/anti-affinity map is not required.")
+            logger.debug("Rebalancing based on affinity/anti-affinity map is not required.")
             proxlb_data["meta"]["balancing"]["enforce_affinity"] = False
 
         logger.debug("Finished: validate_current_affinity.")
@@ -774,7 +847,15 @@ class Calculations:
                 nodes.append(node)
 
             if len(set(nodes)) != 1:
-                logger.debug(f"Group '{group_name}' invalid: guests spread across nodes {set(nodes)}.")
+                member_locations = {
+                    g: Calculations.get_guest_node(proxlb_data, g)
+                    for g in grp["guests"] if g in proxlb_data["guests"]
+                }
+                logger.debug(
+                    f"Affinity group '{group_name}' violated: members are spread across multiple nodes. "
+                    f"Distribution: {', '.join(f'{g}@{n}' for g, n in member_locations.items())}. "
+                    f"Rebalancing required."
+                )
                 return False
 
         return True
@@ -814,6 +895,15 @@ class Calculations:
                 nodes.append(node)
 
             if len(nodes) != len(set(nodes)):
+                member_locations = {
+                    g: Calculations.get_guest_node(proxlb_data, g)
+                    for g in grp["guests"] if g in proxlb_data["guests"]
+                }
+                logger.debug(
+                    f"Anti-affinity group '{group_name}' violated: multiple members share a node. "
+                    f"Distribution: {', '.join(f'{g}@{n}' for g, n in member_locations.items())}. "
+                    f"Rebalancing required."
+                )
                 return False
 
         return True

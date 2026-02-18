@@ -70,6 +70,12 @@ class CliParser:
             action="store_true",
             required=False
         )
+        self.parser.add_argument(
+            "-e", "--explain",
+            help="Print a human-readable explanation of balancing decisions (extended dry-run)",
+            action="store_true",
+            required=False
+        )
         logger.debug("Finished: CliParser.")
 
     def parse_args(self) -> argparse.Namespace:

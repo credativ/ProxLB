@@ -90,10 +90,11 @@ class Helper:
         else:
             proxlb_data["meta"]["statistics"]["after"] = {"memory": nodes_usage_memory, "cpu": nodes_usage_cpu, "disk": nodes_usage_disk}
 
-        logger.debug(f"Nodes usage memory: {nodes_usage_memory}")
-        logger.debug(f"Nodes usage memory assigned: {nodes_assigned_memory}")
-        logger.debug(f"Nodes usage cpu:    {nodes_usage_cpu}")
-        logger.debug(f"Nodes usage disk:   {nodes_usage_disk}")
+        label = "Before" if init else "After"
+        logger.info(f"[{label}] Node memory usage:    {nodes_usage_memory}")
+        logger.info(f"[{label}] Node memory assigned: {nodes_assigned_memory}")
+        logger.info(f"[{label}] Node CPU usage:       {nodes_usage_cpu}")
+        logger.info(f"[{label}] Node disk usage:      {nodes_usage_disk}")
         logger.debug("Finished: log_node_metrics.")
 
     @staticmethod
@@ -182,6 +183,159 @@ class Helper:
             logger.debug("Service delay not active. Proceeding without delay.")
 
         logger.debug("Finished: get_service_delay.")
+
+    @staticmethod
+    def print_explain(proxlb_data: Dict[str, Any]) -> None:
+        """
+        Prints a human-readable, semi-graphical explanation of the balancing
+        decisions ProxLB would make (similar to PostgreSQL's EXPLAIN).
+
+        Parameters:
+            proxlb_data (Dict[str, Any]): The fully computed ProxLB data dict,
+                including 'meta.balancing.explain_before' (node snapshot before
+                relocation) and the post-calculation 'nodes' state.
+
+        Returns:
+            None
+        """
+        logger.debug("Starting: print_explain.")
+
+        method = proxlb_data["meta"]["balancing"].get("method", "memory")
+        mode = proxlb_data["meta"]["balancing"].get("mode", "used")
+        balanciness = proxlb_data["meta"]["balancing"].get("balanciness", 10)
+        bar_width = 30
+
+        def make_bar(pct: float) -> str:
+            filled = max(0, min(bar_width, int(round(pct / 100.0 * bar_width))))
+            return "#" * filled + "." * (bar_width - filled)
+
+        def get_metric(node_data: dict) -> tuple:
+            """Return (percent, display_label) for the active balancing metric."""
+            if mode == "psi":
+                pct = node_data.get(f"{method}_pressure_full_spikes_percent", 0.0)
+                return pct, f"{pct:.2f}% spk"
+            pct = node_data.get(f"{method}_{mode}_percent", 0.0)
+            if method == "memory":
+                key = "memory_assigned" if mode == "assigned" else "memory_used"
+                used_gb = node_data.get(key, 0) / (1024 ** 3)
+                total_gb = node_data.get("memory_total", 1) / (1024 ** 3)
+                return pct, f"{used_gb:.1f}/{total_gb:.1f} GB"
+            if method == "cpu":
+                key = "cpu_assigned" if mode == "assigned" else "cpu_used"
+                used = node_data.get(key, 0)
+                total = node_data.get("cpu_total", 1)
+                return pct, f"{used:.1f}/{total:.0f} cores"
+            # disk
+            key = "disk_assigned" if mode == "assigned" else "disk_used"
+            used_gb = node_data.get(key, 0) / (1024 ** 3)
+            total_gb = node_data.get("disk_total", 1) / (1024 ** 3)
+            return pct, f"{used_gb:.1f}/{total_gb:.1f} GB"
+
+        bar_header = "0%" + " " * (bar_width - 7) + "100%"
+
+        def print_node_table(title: str, node_data: dict) -> None:
+            print(f"\n  {title}")
+            print(f"  {'-' * 74}")
+            print(f"  {'Node':<18} {'Load%':>6}  {'Resource':>16}  Bar ({bar_header})")
+            print(f"  {'-' * 18} {'-' * 6}  {'-' * 16}  {'-' * bar_width}")
+            for name in sorted(node_data.keys()):
+                n = node_data[name]
+                pct, res_label = get_metric(n)
+                bar = make_bar(pct)
+                maint = "  [MAINTENANCE]" if n.get("maintenance") else ""
+                print(f"  {name:<18} {pct:>5.1f}%  {res_label:>16}  {bar}{maint}")
+
+        # Header
+        print()
+        print("  +-----------------------------------------------------------------+")
+        print("  |      ProxLB Explain - Cluster Balancing Decision Report        |")
+        print("  +-----------------------------------------------------------------+")
+        print()
+        print(f"  Balancing metric : {method} ({mode})")
+        print(f"  Balanciness      : {balanciness}%  (max allowed spread between nodes)")
+        larger_first = proxlb_data.get("meta", {}).get("balancing", {}).get("balance_larger_guests_first", False)
+        print(f"  Guest sort order : {'larger guests first' if larger_first else 'smaller guests first'}")
+        print("  Mode             : explain (no migrations will be executed)")
+
+        # Before state
+        before = proxlb_data["meta"]["balancing"].get("explain_before", {})
+        if before:
+            print_node_table("CLUSTER STATE  (before)", before)
+            pcts = [get_metric(n)[0] for n in before.values()]
+            if pcts:
+                spread = max(pcts) - min(pcts)
+                high_node = max(before.items(), key=lambda x: get_metric(x[1])[0])
+                low_node = min(before.items(), key=lambda x: get_metric(x[1])[0])
+                high_pct = get_metric(high_node[1])[0]
+                low_pct = get_metric(low_node[1])[0]
+                verdict = "BALANCING REQUIRED" if spread > balanciness else "OK - no balancing needed"
+                print(f"\n  Spread : {spread:.1f}%  "
+                      f"(most loaded: {high_node[0]} {high_pct:.1f}%,  "
+                      f"least loaded: {low_node[0]} {low_pct:.1f}%)")
+                print(f"  Verdict: {verdict}  (threshold: {balanciness}%)")
+
+        # Planned migrations
+        migrations = sorted(
+            [
+                (name, guest)
+                for name, guest in proxlb_data["guests"].items()
+                if (
+                    guest.get("node_current") != guest.get("node_target")
+                    and not guest.get("ignore")
+                    and guest.get("node_target") is not None
+                )
+            ],
+            key=lambda x: x[1].get("memory_used", 0),
+            reverse=True,
+        )
+
+        print("\n\n  PLANNED MIGRATIONS")
+        print(f"  {'-' * 76}")
+
+        if not migrations:
+            print("  No migrations planned - cluster is already balanced.")
+        else:
+            col_g = 24
+            type_labels = {"vm": "VM", "ct": "CT (LXC)"}
+            print(f"  {'#':<3}  {'Guest':<{col_g}}  {'Type':<8}  {'RAM Used':>8}  Migration")
+            print(f"  {'---'}  {'-' * col_g}  {'--------'}  {'--------'}  {'-' * 30}")
+            for i, (name, guest) in enumerate(migrations, 1):
+                mem_gb = guest.get("memory_used", 0) / (1024 ** 3)
+                gtype = type_labels.get(guest.get("type", "vm"), guest.get("type", "vm").upper())
+                src = guest["node_current"]
+                dst = guest["node_target"]
+                # Collect reason flags
+                pins = guest.get("node_relationships", []) or []
+                ha_rules_list = guest.get("ha_rules", []) or []
+                notes = []
+                if ha_rules_list:
+                    rule_ids = [str(r.get("rule", "?")) for r in ha_rules_list]
+                    notes.append(f"affinity-rule:{','.join(rule_ids)}")
+                if pins:
+                    notes.append(f"pinned-to:{','.join(pins)}")
+                note_str = f"  [{', '.join(notes)}]" if notes else ""
+                trunc_name = name[:col_g]
+                print(f"  {i:<3}  {trunc_name:<{col_g}}  {gtype:<8}  {mem_gb:>6.2f} GB  "
+                      f"{src} --> {dst}{note_str}")
+
+        print(f"\n  Total: {len(migrations)} guest(s) planned for migration")
+
+        # Projected state
+        after = proxlb_data["nodes"]
+        print_node_table("CLUSTER STATE  (projected, after planned migrations)", after)
+
+        pcts_after = [get_metric(n)[0] for n in after.values()]
+        if pcts_after:
+            spread_after = max(pcts_after) - min(pcts_after)
+            if spread_after <= balanciness:
+                post_verdict = "Within threshold - cluster will be balanced"
+            else:
+                post_verdict = f"Still {spread_after:.1f}% spread - further runs may improve balance"
+            print(f"\n  Projected spread : {spread_after:.1f}%  (threshold: {balanciness}%)")
+            print(f"  Post-migration   : {post_verdict}")
+        print()
+
+        logger.debug("Finished: print_explain.")
 
     @staticmethod
     def print_json(proxlb_config: Dict[str, Any], print_json: bool = False) -> None:
