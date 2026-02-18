@@ -526,19 +526,23 @@ class Calculations:
                         node_target = proxlb_data['meta']['balancing'].get('balance_next_node', None)
                         group_members = proxlb_data["groups"]["affinity"][group_name].get("guests", [])
                         other_members = [g for g in group_members if g != guest_name]
-                        co_members_str = f", co-located with: {', '.join(other_members)}" if other_members else ""
+                        if other_members:
+                            affinity_str = f", co-located with: {', '.join(other_members)}"
+                        else:
+                            affinity_str = ", no affinity constraints"
 
                         if node_target is None:
                             logger.warning(
-                                f"Skipping relocation of guest '{guest_name}': no target node available{co_members_str}."
+                                f"Skipping relocation of guest '{guest_name}': no target node available{affinity_str}."
                             )
                         else:
                             node_mem_free_gb = proxlb_data["nodes"][node_target]["memory_free"] / (1024 ** 3)
                             guest_mem_needed_gb = proxlb_data["guests"][guest_name]["memory_used"] / (1024 ** 3)
                             logger.warning(
                                 f"Skipping relocation of guest '{guest_name}': "
-                                f"node '{node_target}' has {node_mem_free_gb:.2f} GB RAM free "
-                                f"but guest needs {guest_mem_needed_gb:.2f} GB{co_members_str}."
+                                f"node '{node_target}' has {node_mem_free_gb:.2f} GB RAM projected free "
+                                f"(after accounting for already-planned migrations this run) "
+                                f"but guest needs {guest_mem_needed_gb:.2f} GB{affinity_str}."
                             )
                         continue
 
