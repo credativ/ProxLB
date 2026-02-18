@@ -457,11 +457,11 @@ class Helper:
         logger.debug("Starting: validate_node_presence.")
 
         if node in nodes["nodes"].keys():
-            logger.info(f"Node {node} found in cluster. Applying pinning.")
+            logger.debug(f"Node {node} found in cluster.")
             logger.debug("Finished: validate_node_presence.")
             return True
         else:
-            logger.warning(f"Node {node} not found in cluster. Not applying pinning!")
+            logger.warning(f"Node {node} not found in cluster. Pinning will not be applied!")
             logger.debug("Finished: validate_node_presence.")
             return False
 
