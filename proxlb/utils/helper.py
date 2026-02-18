@@ -185,6 +185,51 @@ class Helper:
         logger.debug("Finished: get_service_delay.")
 
     @staticmethod
+    def log_cluster_summary(proxlb_data: Dict[str, Any]) -> None:
+        """
+        Logs a one-time summary of the cluster state after data collection:
+        node count, maintenance nodes, guest count, ignored guests, and
+        which guests are pinned to specific nodes.
+
+        Parameters:
+            proxlb_data (Dict[str, Any]): The assembled ProxLB data dict.
+
+        Returns:
+            None
+        """
+        logger.debug("Starting: log_cluster_summary.")
+        nodes = proxlb_data.get("nodes", {})
+        guests = proxlb_data.get("guests", {})
+
+        maintenance_nodes = sorted(n for n, d in nodes.items() if d.get("maintenance"))
+        ignored_guests = sorted(g for g, d in guests.items() if d.get("ignore"))
+        pinned_guests = {
+            g: d["node_relationships"]
+            for g, d in guests.items()
+            if d.get("node_relationships")
+        }
+
+        node_str = f"{len(nodes)} node(s)"
+        if maintenance_nodes:
+            node_str += f", {len(maintenance_nodes)} in maintenance: {', '.join(maintenance_nodes)}"
+
+        guest_str = f"{len(guests)} guest(s)"
+        if ignored_guests:
+            guest_str += f", {len(ignored_guests)} ignored: {', '.join(ignored_guests)}"
+
+        logger.info(f"Cluster: {node_str}, {guest_str}.")
+
+        if pinned_guests:
+            pin_parts = []
+            for g, node_list in sorted(pinned_guests.items()):
+                pin_parts.append(f"{g}->{'/'.join(node_list)}")
+            logger.info(f"Pinned guests ({len(pinned_guests)}): {', '.join(pin_parts)}.")
+        else:
+            logger.debug("No guests are pinned to specific nodes.")
+
+        logger.debug("Finished: log_cluster_summary.")
+
+    @staticmethod
     def print_explain(proxlb_data: Dict[str, Any]) -> None:
         """
         Prints a human-readable, semi-graphical explanation of the balancing

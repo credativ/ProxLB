@@ -72,6 +72,7 @@ def main():
             Helper.proxlb_reload = False
 
         # Get all required objects from the Proxmox cluster
+        logger.info("Collecting cluster state from Proxmox API...")
         meta = {"meta": proxlb_config}
         nodes = Nodes.get_nodes(proxmox_api, proxlb_config)
         meta = Features.validate_any_non_pve9_node(meta, nodes)
@@ -82,6 +83,7 @@ def main():
 
         # Merge obtained objects from the Proxmox cluster for further usage
         proxlb_data = {**meta, **nodes, **guests, **pools, **ha_rules, **groups}
+        Helper.log_cluster_summary(proxlb_data)
         Helper.log_node_metrics(proxlb_data)
 
         # Validate usable features by PVE versions
@@ -90,7 +92,6 @@ def main():
         # Update the initial node resource assignments
         # by the previously created groups.
         Calculations.set_node_assignments(proxlb_data)
-        Helper.log_node_metrics(proxlb_data, init=False)
 
         # Capture a node state snapshot for explain mode (after assignment baseline,
         # before relocation decisions, so the "before" shows the actual cluster load).
@@ -105,6 +106,7 @@ def main():
         if target is None:
             logger.warning("No suitable target node found for balancing. Skipping this run.")
         else:
+            logger.info("Checking cluster balance and planning migrations...")
             Calculations.validate_affinity_map(proxlb_data)
             Calculations.relocate_guests_on_maintenance_nodes(proxlb_data)
             Calculations.get_balanciness(proxlb_data)
@@ -114,6 +116,12 @@ def main():
             # Perform balancing actions via Proxmox API
             if proxlb_data["meta"]["balancing"].get("enable", False):
                 if not cli_args.dry_run and not cli_args.explain:
+                    pending = [
+                        g for g, d in proxlb_data["guests"].items()
+                        if d.get("node_current") != d.get("node_target") and not d.get("ignore")
+                    ]
+                    if pending:
+                        logger.info(f"Executing {len(pending)} migration(s): {', '.join(pending)}.")
                     Balancing(proxmox_api, proxlb_data)
 
         # Validate if the JSON output should be

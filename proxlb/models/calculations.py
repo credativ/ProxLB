@@ -193,7 +193,7 @@ class Calculations:
         return proxlb_data
 
     @staticmethod
-    def get_balanciness(proxlb_data: Dict[str, Any]) -> Dict[str, Any]:
+    def get_balanciness(proxlb_data: Dict[str, Any], report: bool = True) -> Dict[str, Any]:
         """
         Get the blanaciness for further actions where the highest and lowest
         usage or assignments of Proxmox nodes are compared. Based on the users
@@ -201,6 +201,8 @@ class Calculations:
 
         Args:
             proxlb_data (Dict[str, Any]): The data holding all content of all objects.
+            report (bool): Log the verdict at INFO level. Pass False for re-checks
+                           inside the balancing loop to avoid repeated INFO messages.
         Returns:
             Dict[str, Any]: Updated meta data section of the balanciness action defined
                   as a bool.
@@ -281,15 +283,17 @@ class Calculations:
             lowest_node = min(proxlb_data["nodes"].values(), key=lambda n: n.get(f"{method}_{mode}_percent", 0))
             delta = method_value_highest - method_value_lowest
 
+            log = logger.info if report else logger.debug
+
             if delta > balanciness:
                 proxlb_data["meta"]["balancing"]["balance"] = True
-                logger.info(
+                log(
                     f"Balancing required: {method}/{mode} spread is {delta:.1f}% (allowed threshold={balanciness}%). "
                     f"Most loaded: '{highest_node['name']}' ({method_value_highest:.1f}%), "
                     f"least loaded: '{lowest_node['name']}' ({method_value_lowest:.1f}%)."
                 )
             else:
-                logger.info(
+                log(
                     f"Cluster is balanced: {method}/{mode} spread is {delta:.1f}% (allowed threshold={balanciness}%). "
                     f"Most loaded: '{highest_node['name']}' ({method_value_highest:.1f}%), "
                     f"least loaded: '{lowest_node['name']}' ({method_value_lowest:.1f}%)."
@@ -492,7 +496,7 @@ class Calculations:
             for group_name in sorted_guest_usage_groups:
 
                 # Validate balanciness again before processing each group
-                Calculations.get_balanciness(proxlb_data)
+                Calculations.get_balanciness(proxlb_data, report=False)
                 balance_check = proxlb_data["meta"]["balancing"]["balance"]
                 bal_method = proxlb_data["meta"]["balancing"].get("method", "memory")
                 bal_mode = proxlb_data["meta"]["balancing"].get("mode", "used")
@@ -733,17 +737,20 @@ class Calculations:
         # Assign guest to the new target node
         if not proxlb_data["guests"][guest_name]["ignore"]:
             proxlb_data["guests"][guest_name]["node_target"] = node_target
-            bal_method = proxlb_data["meta"]["balancing"].get("method", "memory")
-            bal_mode = proxlb_data["meta"]["balancing"].get("mode", "used")
-            guest_mem_gb = proxlb_data["guests"][guest_name]["memory_used"] / (1024 ** 3)
-            metric_key = f"{bal_method}_{bal_mode}_percent"
-            src_pct = proxlb_data["nodes"][node_current].get(metric_key, node_current_mem_pct_before)
-            tgt_pct = proxlb_data["nodes"][node_target].get(metric_key, node_target_mem_pct_before)
-            logger.info(
-                f"Migration plan: '{guest_name}' ({guest_mem_gb:.2f} GB RAM used) "
-                f"[{node_current}] ({bal_method} {src_pct:.1f}%) "
-                f"-> [{node_target}] ({bal_method} {tgt_pct:.1f}%)."
-            )
+            if node_current != node_target:
+                bal_method = proxlb_data["meta"]["balancing"].get("method", "memory")
+                bal_mode = proxlb_data["meta"]["balancing"].get("mode", "used")
+                guest_mem_gb = proxlb_data["guests"][guest_name]["memory_used"] / (1024 ** 3)
+                metric_key = f"{bal_method}_{bal_mode}_percent"
+                src_pct = proxlb_data["nodes"][node_current].get(metric_key, node_current_mem_pct_before)
+                tgt_pct = proxlb_data["nodes"][node_target].get(metric_key, node_target_mem_pct_before)
+                logger.info(
+                    f"Migration plan: '{guest_name}' ({guest_mem_gb:.2f} GB RAM used) "
+                    f"[{node_current}] ({bal_method} {src_pct:.1f}%) "
+                    f"-> [{node_target}] ({bal_method} {tgt_pct:.1f}%)."
+                )
+            else:
+                logger.debug(f"Guest '{guest_name}' stays on '{node_current}' (already on best node for its constraints).")
         else:
             logger.debug(f"Guest '{guest_name}' is marked as ignored. Skipping target node assignment.")
 
