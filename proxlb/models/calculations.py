@@ -256,19 +256,28 @@ class Calculations:
             elif mode == "psi":
                 method_value = [node_meta[f"{method}_pressure_full_spikes_percent"] for node_meta in proxlb_data["nodes"].values()]
                 any_node_hot = any(node.get(f"{method}_pressure_hot", False) for node in proxlb_data["nodes"].values())
-                any_guest_hot = any(node.get(f"{method}_pressure_hot", False) for node in proxlb_data["guests"].values())
+                any_guest_hot = any(guest.get(f"{method}_pressure_hot", False) for guest in proxlb_data["guests"].values())
+
+                log = logger.info if report else logger.debug
+
+                node_psi_summary = ", ".join(
+                    f"{name}={proxlb_data['nodes'][name].get(f'{method}_pressure_full_spikes_percent', 0.0):.2f}%spk"
+                    for name in proxlb_data["nodes"]
+                )
 
                 if any_node_hot:
-                    logger.debug(f"Guest balancing is required. A node is marked as HOT based on {method} pressure metrics.")
+                    hot_nodes = [name for name, n in proxlb_data["nodes"].items() if n.get(f"{method}_pressure_hot", False)]
+                    log(f"PSI: node(s) HOT on {method} pressure - balancing required: {', '.join(hot_nodes)}. All nodes: [{node_psi_summary}].")
                     proxlb_data["meta"]["balancing"]["balance"] = True
                 else:
-                    logger.debug(f"Guest balancing is ok. No node is marked as HOT based on {method} pressure metrics.")
+                    log(f"PSI: no node HOT on {method} pressure - no node-triggered balancing. Nodes: [{node_psi_summary}].")
 
                 if any_guest_hot:
-                    logger.debug(f"Guest balancing is required. A guest is marked as HOT based on {method} pressure metrics.")
+                    hot_guests = [name for name, g in proxlb_data["guests"].items() if g.get(f"{method}_pressure_hot", False)]
+                    log(f"PSI: guest(s) HOT on {method} pressure - balancing required: {', '.join(hot_guests)}.")
                     proxlb_data["meta"]["balancing"]["balance"] = True
                 else:
-                    logger.debug(f"Guest balancing is ok. No guest is marked as HOT based on {method} pressure metrics.")
+                    log(f"PSI: no guest HOT on {method} pressure - no guest-triggered balancing.")
 
                 return proxlb_data
 
@@ -558,10 +567,11 @@ class Calculations:
                         if highest_usage_guest["name"] == guest_name and guest_name not in proxlb_data["meta"]["balancing"]["processed_guests_psi"]:
                             proxlb_data["meta"]["balancing"]["processed_guests_psi"].append(guest_name)
                             proxlb_data["meta"]["balancing"]["balance_next_guest"] = guest_name
-                            logger.debug(
-                                f"PSI mode: selected guest '{guest_name}' (highest {method} pressure spike: "
+                            logger.info(
+                                f"PSI mode: relocating guest '{guest_name}' "
+                                f"(highest {method} pressure spikes: "
                                 f"{highest_usage_guest.get(f'{method}_pressure_full_spikes_percent', 0):.2f}%) "
-                                f"on node '{source_node}' for relocation."
+                                f"from node '{source_node}'."
                             )
 
                     else:

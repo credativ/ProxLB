@@ -258,7 +258,9 @@ class Helper:
             """Return (percent, display_label) for the active balancing metric."""
             if mode == "psi":
                 pct = node_data.get(f"{method}_pressure_full_spikes_percent", 0.0)
-                return pct, f"{pct:.2f}% spk"
+                is_hot = node_data.get(f"{method}_pressure_hot", False)
+                hot_flag = " [HOT]" if is_hot else ""
+                return pct, f"{pct:.2f}%spk{hot_flag}"
             pct = node_data.get(f"{method}_{mode}_percent", 0.0)
             if method == "memory":
                 key = "memory_assigned" if mode == "assigned" else "memory_used"
@@ -297,7 +299,18 @@ class Helper:
         print("  +-----------------------------------------------------------------+")
         print()
         print(f"  Balancing metric : {method} ({mode})")
-        print(f"  Balanciness      : {balanciness}%  (max allowed spread between nodes)")
+        if mode == "psi":
+            psi_thresholds = proxlb_data["meta"]["balancing"].get(
+                "psi_thresholds",
+                proxlb_data["meta"]["balancing"].get("psi", {}).get("nodes", {})
+            )
+            for metric_name, thr in psi_thresholds.items():
+                thr_full = thr.get("pressure_full", "?")
+                thr_some = thr.get("pressure_some", "?")
+                thr_spikes = thr.get("pressure_spikes", "?")
+                print(f"  PSI trigger ({metric_name:6}): full>={thr_full}% AND some>={thr_some}%  OR  spikes>={thr_spikes}%")
+        else:
+            print(f"  Balanciness      : {balanciness}%  (max allowed spread between nodes)")
         larger_first = proxlb_data.get("meta", {}).get("balancing", {}).get("balance_larger_guests_first", False)
         print(f"  Guest sort order : {'larger guests first' if larger_first else 'smaller guests first'}")
         print("  Mode             : explain (no migrations will be executed)")
@@ -308,16 +321,32 @@ class Helper:
             print_node_table("CLUSTER STATE  (before)", before)
             pcts = [get_metric(n)[0] for n in before.values()]
             if pcts:
-                spread = max(pcts) - min(pcts)
-                high_node = max(before.items(), key=lambda x: get_metric(x[1])[0])
-                low_node = min(before.items(), key=lambda x: get_metric(x[1])[0])
-                high_pct = get_metric(high_node[1])[0]
-                low_pct = get_metric(low_node[1])[0]
-                verdict = "BALANCING REQUIRED" if spread > balanciness else "OK - no balancing needed"
-                print(f"\n  Spread : {spread:.1f}%  "
-                      f"(most loaded: {high_node[0]} {high_pct:.1f}%,  "
-                      f"least loaded: {low_node[0]} {low_pct:.1f}%)")
-                print(f"  Verdict: {verdict}  (threshold: {balanciness}%)")
+                if mode == "psi":
+                    hot_nodes = [name for name, n in proxlb_data["nodes"].items() if n.get(f"{method}_pressure_hot", False)]
+                    hot_guests = [name for name, g in proxlb_data["guests"].items() if g.get(f"{method}_pressure_hot", False) and not g.get("ignore")]
+                    if hot_nodes or hot_guests:
+                        verdict = "BALANCING REQUIRED"
+                        detail_parts = []
+                        if hot_nodes:
+                            detail_parts.append(f"HOT nodes: {', '.join(hot_nodes)}")
+                        if hot_guests:
+                            detail_parts.append(f"HOT guests: {', '.join(hot_guests)}")
+                        print(f"\n  PSI status: PRESSURE DETECTED - {'; '.join(detail_parts)}.")
+                    else:
+                        verdict = "OK - no PSI pressure detected"
+                        print(f"\n  PSI status: no HOT nodes or guests - balancing not triggered.")
+                    print(f"  Verdict: {verdict}")
+                else:
+                    spread = max(pcts) - min(pcts)
+                    high_node = max(before.items(), key=lambda x: get_metric(x[1])[0])
+                    low_node = min(before.items(), key=lambda x: get_metric(x[1])[0])
+                    high_pct = get_metric(high_node[1])[0]
+                    low_pct = get_metric(low_node[1])[0]
+                    verdict = "BALANCING REQUIRED" if spread > balanciness else "OK - no balancing needed"
+                    print(f"\n  Spread : {spread:.1f}%  "
+                          f"(most loaded: {high_node[0]} {high_pct:.1f}%,  "
+                          f"least loaded: {low_node[0]} {low_pct:.1f}%)")
+                    print(f"  Verdict: {verdict}  (threshold: {balanciness}%)")
 
         # Planned migrations
         migrations = sorted(
@@ -371,13 +400,26 @@ class Helper:
 
         pcts_after = [get_metric(n)[0] for n in after.values()]
         if pcts_after:
-            spread_after = max(pcts_after) - min(pcts_after)
-            if spread_after <= balanciness:
-                post_verdict = "Within threshold - cluster will be balanced"
+            if mode == "psi":
+                hot_nodes_after = [name for name, n in after.items() if n.get(f"{method}_pressure_hot", False)]
+                hot_guests_after = [name for name, g in proxlb_data["guests"].items() if g.get(f"{method}_pressure_hot", False) and not g.get("ignore")]
+                if hot_nodes_after or hot_guests_after:
+                    remaining = []
+                    if hot_nodes_after:
+                        remaining.append(f"HOT nodes: {', '.join(hot_nodes_after)}")
+                    if hot_guests_after:
+                        remaining.append(f"HOT guests: {', '.join(hot_guests_after)}")
+                    print(f"\n  PSI post-state   : pressure still detected after migrations - {'; '.join(remaining)}.")
+                else:
+                    print(f"\n  PSI post-state   : no HOT nodes or guests - cluster will be balanced.")
             else:
-                post_verdict = f"Still {spread_after:.1f}% spread - further runs may improve balance"
-            print(f"\n  Projected spread : {spread_after:.1f}%  (threshold: {balanciness}%)")
-            print(f"  Post-migration   : {post_verdict}")
+                spread_after = max(pcts_after) - min(pcts_after)
+                if spread_after <= balanciness:
+                    post_verdict = "Within threshold - cluster will be balanced"
+                else:
+                    post_verdict = f"Still {spread_after:.1f}% spread - further runs may improve balance"
+                print(f"\n  Projected spread : {spread_after:.1f}%  (threshold: {balanciness}%)")
+                print(f"  Post-migration   : {post_verdict}")
         print()
 
         logger.debug("Finished: print_explain.")

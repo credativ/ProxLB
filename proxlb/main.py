@@ -93,15 +93,16 @@ def main():
         # by the previously created groups.
         Calculations.set_node_assignments(proxlb_data)
 
-        # Capture a node state snapshot for explain mode (after assignment baseline,
-        # before relocation decisions, so the "before" shows the actual cluster load).
+        Calculations.set_node_hot(proxlb_data)
+        Calculations.set_guest_hot(proxlb_data)
+
+        # Capture a node state snapshot for explain mode (after assignment baseline
+        # and HOT detection, before relocation decisions).
         if cli_args.explain:
             proxlb_data["meta"]["balancing"]["explain_before"] = {
                 name: dict(node)
                 for name, node in proxlb_data["nodes"].items()
             }
-        Calculations.set_node_hot(proxlb_data)
-        Calculations.set_guest_hot(proxlb_data)
         target = Calculations.get_most_free_node(proxlb_data, cli_args.best_node)
         if target is None:
             logger.warning("No suitable target node found for balancing. Skipping this run.")
