@@ -14,6 +14,7 @@ setup(
     install_requires=[
         "packaging",
         "proxmoxer",
+        "proxmoxer-stubs",
         "pydantic",
         "pyyaml",
         "requests",

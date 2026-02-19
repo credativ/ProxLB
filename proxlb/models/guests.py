@@ -71,43 +71,49 @@ class Guests:
             # VM objects: Iterate over all VMs on the current node by the qemu API object.
             # Unlike the nodes we need to keep them even when being ignored to create proper
             # resource metrics for rebalancing to ensure that we do not overprovisiong the node.
-            for guest in proxmox_api.nodes(node).qemu.get():
-                if guest['status'] == 'running':
+            for qemu_guest in proxmox_api.nodes(node).qemu.get.model():
+                assert qemu_guest.cpus is not None
+                assert qemu_guest.disk is not None
+                assert qemu_guest.maxdisk is not None
+                assert qemu_guest.maxmem is not None
+                assert qemu_guest.mem is not None
+                assert qemu_guest.name is not None
+                if qemu_guest.status == 'running':
 
-                    guest_tags = Tags.get_tags_from_guests(proxmox_api, node, guest['vmid'], GuestType.Vm)
-                    guest_pools = Pools.get_pools_for_guest(guest['name'], pools)
-                    guest_ha_rules = HaRules.get_ha_rules_for_guest(guest['name'], ha_rules, guest['vmid'])
+                    guest_tags = Tags.get_tags_from_guests(proxmox_api, node, qemu_guest.vmid, GuestType.Vm)
+                    guest_pools = Pools.get_pools_for_guest(qemu_guest.name, pools)
+                    guest_ha_rules = HaRules.get_ha_rules_for_guest(qemu_guest.name, ha_rules, qemu_guest.vmid)
 
-                    guests[guest['name']] = ProxLbData.Guest(
-                        name=guest['name'],
+                    guests[qemu_guest.name] = ProxLbData.Guest(
+                        name=qemu_guest.name,
                         cpu=ProxLbData.Guest.Metric(
-                            total=int(guest['cpus']),
-                            used=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', None),
-                            pressure_some_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'some'),
-                            pressure_full_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'full'),
-                            pressure_some_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'some', spikes=True),
-                            pressure_full_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'full', spikes=True),
+                            total=int(qemu_guest.cpus),
+                            used=Guests.get_guest_rrd_data(proxmox_api, node, qemu_guest.vmid, qemu_guest.name, 'cpu', None),
+                            pressure_some_percent=Guests.get_guest_rrd_data(proxmox_api, node, qemu_guest.vmid, qemu_guest.name, 'cpu', 'some'),
+                            pressure_full_percent=Guests.get_guest_rrd_data(proxmox_api, node, qemu_guest.vmid, qemu_guest.name, 'cpu', 'full'),
+                            pressure_some_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, qemu_guest.vmid, qemu_guest.name, 'cpu', 'some', spikes=True),
+                            pressure_full_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, qemu_guest.vmid, qemu_guest.name, 'cpu', 'full', spikes=True),
                             pressure_hot=False,
                         ),
                         disk=ProxLbData.Guest.Metric(
-                            total=guest['maxdisk'],
-                            used=guest['disk'],
-                            pressure_some_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'some'),
-                            pressure_full_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'full'),
-                            pressure_some_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'some', spikes=True),
-                            pressure_full_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'full', spikes=True),
+                            total=qemu_guest.maxdisk,
+                            used=qemu_guest.disk,
+                            pressure_some_percent=Guests.get_guest_rrd_data(proxmox_api, node, qemu_guest.vmid, qemu_guest.name, 'disk', 'some'),
+                            pressure_full_percent=Guests.get_guest_rrd_data(proxmox_api, node, qemu_guest.vmid, qemu_guest.name, 'disk', 'full'),
+                            pressure_some_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, qemu_guest.vmid, qemu_guest.name, 'disk', 'some', spikes=True),
+                            pressure_full_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, qemu_guest.vmid, qemu_guest.name, 'disk', 'full', spikes=True),
                             pressure_hot=False,
                         ),
                         memory=ProxLbData.Guest.Metric(
-                            total=guest['maxmem'],
-                            used=guest['mem'],
-                            pressure_some_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'some'),
-                            pressure_full_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'full'),
-                            pressure_some_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'some', spikes=True),
-                            pressure_full_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'full', spikes=True),
+                            total=qemu_guest.maxmem,
+                            used=qemu_guest.mem,
+                            pressure_some_percent=Guests.get_guest_rrd_data(proxmox_api, node, qemu_guest.vmid, qemu_guest.name, 'memory', 'some'),
+                            pressure_full_percent=Guests.get_guest_rrd_data(proxmox_api, node, qemu_guest.vmid, qemu_guest.name, 'memory', 'full'),
+                            pressure_some_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, qemu_guest.vmid, qemu_guest.name, 'memory', 'some', spikes=True),
+                            pressure_full_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, qemu_guest.vmid, qemu_guest.name, 'memory', 'full', spikes=True),
                             pressure_hot=False,
                         ),
-                        id=guest['vmid'],
+                        id=qemu_guest.vmid,
                         node_current=node,
                         node_target=node,
                         processed=False,
@@ -123,50 +129,56 @@ class Guests:
                         type=GuestType.Vm,
                     )
 
-                    logger.debug(f"Resources of Guest {guest['name']} (type VM) added: {guests[guest['name']]}")
+                    logger.debug(f"Resources of Guest {qemu_guest.name} (type VM) added: {guests[qemu_guest.name]}")
                 else:
-                    logger.debug(f'Metric for VM {guest["name"]} ignored because VM is not running.')
+                    logger.debug(f'Metric for VM {qemu_guest.name} ignored because VM is not running.')
 
             # CT objects: Iterate over all VMs on the current node by the lxc API object.
             # Unlike the nodes we need to keep them even when being ignored to create proper
             # resource metrics for rebalancing to ensure that we do not overprovisiong the node.
-            for guest in proxmox_api.nodes(node).lxc.get():
-                if guest['status'] == 'running':
+            for lxc_guest in proxmox_api.nodes(node).lxc.get.model():
+                assert lxc_guest.cpus is not None
+                assert lxc_guest.disk is not None
+                assert lxc_guest.maxdisk is not None
+                assert lxc_guest.maxmem is not None
+                assert lxc_guest.mem is not None
+                assert lxc_guest.name is not None
+                if lxc_guest.status == 'running':
 
-                    guest_tags = Tags.get_tags_from_guests(proxmox_api, node, guest['vmid'], GuestType.Ct)
-                    guest_pools = Pools.get_pools_for_guest(guest['name'], pools)
-                    guest_ha_rules = HaRules.get_ha_rules_for_guest(guest['name'], ha_rules, guest['vmid'])
+                    guest_tags = Tags.get_tags_from_guests(proxmox_api, node, lxc_guest.vmid, GuestType.Ct)
+                    guest_pools = Pools.get_pools_for_guest(lxc_guest.name, pools)
+                    guest_ha_rules = HaRules.get_ha_rules_for_guest(lxc_guest.name, ha_rules, lxc_guest.vmid)
 
-                    guests[guest['name']] = ProxLbData.Guest(
+                    guests[lxc_guest.name] = ProxLbData.Guest(
                         cpu=ProxLbData.Guest.Metric(
-                            total=int(guest['cpus']),
-                            used=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', None),
-                            pressure_some_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'some'),
-                            pressure_full_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'full'),
-                            pressure_some_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'some', spikes=True),
-                            pressure_full_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'cpu', 'full', spikes=True),
+                            total=int(lxc_guest.cpus),
+                            used=Guests.get_guest_rrd_data(proxmox_api, node, lxc_guest.vmid, lxc_guest.name, 'cpu', None),
+                            pressure_some_percent=Guests.get_guest_rrd_data(proxmox_api, node, lxc_guest.vmid, lxc_guest.name, 'cpu', 'some'),
+                            pressure_full_percent=Guests.get_guest_rrd_data(proxmox_api, node, lxc_guest.vmid, lxc_guest.name, 'cpu', 'full'),
+                            pressure_some_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, lxc_guest.vmid, lxc_guest.name, 'cpu', 'some', spikes=True),
+                            pressure_full_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, lxc_guest.vmid, lxc_guest.name, 'cpu', 'full', spikes=True),
                             pressure_hot=False,
                         ),
                         disk=ProxLbData.Guest.Metric(
-                            total=guest['maxdisk'],
-                            used=guest['disk'],
-                            pressure_some_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'some'),
-                            pressure_full_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'full'),
-                            pressure_some_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'some', spikes=True),
-                            pressure_full_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'disk', 'full', spikes=True),
+                            total=lxc_guest.maxdisk,
+                            used=lxc_guest.disk,
+                            pressure_some_percent=Guests.get_guest_rrd_data(proxmox_api, node, lxc_guest.vmid, lxc_guest.name, 'disk', 'some'),
+                            pressure_full_percent=Guests.get_guest_rrd_data(proxmox_api, node, lxc_guest.vmid, lxc_guest.name, 'disk', 'full'),
+                            pressure_some_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, lxc_guest.vmid, lxc_guest.name, 'disk', 'some', spikes=True),
+                            pressure_full_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, lxc_guest.vmid, lxc_guest.name, 'disk', 'full', spikes=True),
                             pressure_hot=False,
                         ),
                         memory=ProxLbData.Guest.Metric(
-                            total=guest['maxmem'],
-                            used=guest['mem'],
-                            pressure_some_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'some'),
-                            pressure_full_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'full'),
-                            pressure_some_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'some', spikes=True),
-                            pressure_full_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, guest['vmid'], guest['name'], 'memory', 'full', spikes=True),
+                            total=lxc_guest.maxmem,
+                            used=lxc_guest.mem,
+                            pressure_some_percent=Guests.get_guest_rrd_data(proxmox_api, node, lxc_guest.vmid, lxc_guest.name, 'memory', 'some'),
+                            pressure_full_percent=Guests.get_guest_rrd_data(proxmox_api, node, lxc_guest.vmid, lxc_guest.name, 'memory', 'full'),
+                            pressure_some_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, lxc_guest.vmid, lxc_guest.name, 'memory', 'some', spikes=True),
+                            pressure_full_spikes_percent=Guests.get_guest_rrd_data(proxmox_api, node, lxc_guest.vmid, lxc_guest.name, 'memory', 'full', spikes=True),
                             pressure_hot=False,
                         ),
-                        name=guest['name'],
-                        id=guest['vmid'],
+                        name=lxc_guest.name,
+                        id=lxc_guest.vmid,
                         node_current=node,
                         node_target=node,
                         processed=False,
@@ -182,9 +194,9 @@ class Guests:
                         type=GuestType.Ct,
                     )
 
-                    logger.debug(f"Resources of Guest {guest['name']} (type CT) added: {guests[guest['name']]}")
+                    logger.debug(f"Resources of Guest {lxc_guest.name} (type CT) added: {guests[lxc_guest.name]}")
                 else:
-                    logger.debug(f'Metric for CT {guest["name"]} ignored because CT is not running.')
+                    logger.debug(f'Metric for CT {lxc_guest.name} ignored because CT is not running.')
 
         logger.debug("Finished: get_guests.")
         return guests
@@ -228,7 +240,7 @@ class Guests:
                 # RRD data is collected every minute, so we look at the last 6 entries
                 # and take the maximum value to represent the spike
                 logger.debug(f"Getting RRD data (spike: {spikes}) of pressure for {object_name} {object_type} from guest: {vm_name}.")
-                _rrd_data_value = [row.get(lookup_key) for row in guest_data_rrd if row.get(lookup_key) is not None]
+                _rrd_data_value = [row[lookup_key] for row in guest_data_rrd if lookup_key in row and row[lookup_key] is not None]
                 rrd_data_value = max(_rrd_data_value[-6:], default=0.0)
             else:
                 # Calculate the average value from the RRD data entries
