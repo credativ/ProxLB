@@ -261,20 +261,35 @@ class Calculations:
                 log = logger.info if report else logger.debug
 
                 node_psi_summary = ", ".join(
-                    f"{name}={proxlb_data['nodes'][name].get(f'{method}_pressure_full_spikes_percent', 0.0):.2f}%spk"
+                    "{name}: full={full:.2f}% some={some:.2f}% spikes={spikes:.2f}%".format(
+                        name=name,
+                        full=proxlb_data["nodes"][name].get(f"{method}_pressure_full_percent", 0.0),
+                        some=proxlb_data["nodes"][name].get(f"{method}_pressure_some_percent", 0.0),
+                        spikes=proxlb_data["nodes"][name].get(f"{method}_pressure_full_spikes_percent", 0.0),
+                    )
                     for name in proxlb_data["nodes"]
                 )
 
                 if any_node_hot:
                     hot_nodes = [name for name, n in proxlb_data["nodes"].items() if n.get(f"{method}_pressure_hot", False)]
-                    log(f"PSI: node(s) HOT on {method} pressure - balancing required: {', '.join(hot_nodes)}. All nodes: [{node_psi_summary}].")
+                    log(f"PSI: node(s) HOT on {method} pressure - balancing required: {', '.join(hot_nodes)}. [{node_psi_summary}].")
                     proxlb_data["meta"]["balancing"]["balance"] = True
                 else:
-                    log(f"PSI: no node HOT on {method} pressure - no node-triggered balancing. Nodes: [{node_psi_summary}].")
+                    log(f"PSI: no node HOT on {method} pressure - no node-triggered balancing. [{node_psi_summary}].")
+
+                guest_psi_hot_summary = ", ".join(
+                    "{name}: full={full:.2f}% some={some:.2f}% spikes={spikes:.2f}%".format(
+                        name=name,
+                        full=g.get(f"{method}_pressure_full_percent", 0.0),
+                        some=g.get(f"{method}_pressure_some_percent", 0.0),
+                        spikes=g.get(f"{method}_pressure_full_spikes_percent", 0.0),
+                    )
+                    for name, g in proxlb_data["guests"].items()
+                    if g.get(f"{method}_pressure_hot", False)
+                )
 
                 if any_guest_hot:
-                    hot_guests = [name for name, g in proxlb_data["guests"].items() if g.get(f"{method}_pressure_hot", False)]
-                    log(f"PSI: guest(s) HOT on {method} pressure - balancing required: {', '.join(hot_guests)}.")
+                    log(f"PSI: guest(s) HOT on {method} pressure - balancing required. [{guest_psi_hot_summary}].")
                     proxlb_data["meta"]["balancing"]["balance"] = True
                 else:
                     log(f"PSI: no guest HOT on {method} pressure - no guest-triggered balancing.")

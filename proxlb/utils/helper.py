@@ -257,10 +257,14 @@ class Helper:
         def get_metric(node_data: dict) -> tuple:
             """Return (percent, display_label) for the active balancing metric."""
             if mode == "psi":
-                pct = node_data.get(f"{method}_pressure_full_spikes_percent", 0.0)
+                full = node_data.get(f"{method}_pressure_full_percent", 0.0)
+                some = node_data.get(f"{method}_pressure_some_percent", 0.0)
+                spikes = node_data.get(f"{method}_pressure_full_spikes_percent", 0.0)
                 is_hot = node_data.get(f"{method}_pressure_hot", False)
                 hot_flag = " [HOT]" if is_hot else ""
-                return pct, f"{pct:.2f}%spk{hot_flag}"
+                # Use spikes as the sort/bar metric; show all three in the label
+                label = f"f={full:.1f} s={some:.1f} k={spikes:.1f}%"
+                return spikes, f"{label}{hot_flag}"
             pct = node_data.get(f"{method}_{mode}_percent", 0.0)
             if method == "memory":
                 key = "memory_assigned" if mode == "assigned" else "memory_used"
@@ -280,17 +284,20 @@ class Helper:
 
         bar_header = "0%" + " " * (bar_width - 7) + "100%"
 
+        res_col_width = 26 if mode == "psi" else 16
+
         def print_node_table(title: str, node_data: dict) -> None:
+            sep_width = 18 + 1 + 6 + 2 + res_col_width + 2 + bar_width + 6
             print(f"\n  {title}")
-            print(f"  {'-' * 74}")
-            print(f"  {'Node':<18} {'Load%':>6}  {'Resource':>16}  Bar ({bar_header})")
-            print(f"  {'-' * 18} {'-' * 6}  {'-' * 16}  {'-' * bar_width}")
+            print(f"  {'-' * sep_width}")
+            print(f"  {'Node':<18} {'Load%':>6}  {'Resource':>{res_col_width}}  Bar ({bar_header})")
+            print(f"  {'-' * 18} {'-' * 6}  {'-' * res_col_width}  {'-' * bar_width}")
             for name in sorted(node_data.keys()):
                 n = node_data[name]
                 pct, res_label = get_metric(n)
                 bar = make_bar(pct)
                 maint = "  [MAINTENANCE]" if n.get("maintenance") else ""
-                print(f"  {name:<18} {pct:>5.1f}%  {res_label:>16}  {bar}{maint}")
+                print(f"  {name:<18} {pct:>5.1f}%  {res_label:>{res_col_width}}  {bar}{maint}")
 
         # Header
         print()
