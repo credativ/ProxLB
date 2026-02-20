@@ -85,9 +85,10 @@ def summarize_psi(rows: list, metric: str, ptype: str, spikes: bool) -> dict:
 
 
 def fmt(v) -> str:
+    """Values from Proxmox RRD are already in percent (0-100 scale)."""
     if v is None:
-        return "  n/a   "
-    return f"{v * 100:7.4f}%"
+        return "n/a      "
+    return f"{v:7.4f}%"
 
 
 def main():
@@ -122,9 +123,23 @@ def main():
         max_rows = get_rrd(api, node, args.timeframe, "MAX")
 
         print(f"  RRD entries: {len(avg_rows)} (AVERAGE), {len(max_rows)} (MAX)")
+
+        # Collect all PSI field names actually present in the RRD data
+        all_avg_keys = set()
+        for row in avg_rows:
+            all_avg_keys.update(row.keys())
+        present_psi_keys = sorted(k for k in all_avg_keys if "pressure" in k)
+        missing_psi_keys = sorted(
+            f"pressure{m}{t}" for m in PSI_METRICS for t in PSI_TYPES
+            if f"pressure{m}{t}" not in all_avg_keys
+        )
+        if missing_psi_keys:
+            print(f"\n  WARNING: these PSI keys are MISSING from RRD data (will read as 0.0 in ProxLB):")
+            print(f"    {', '.join(missing_psi_keys)}")
+
         print()
-        print(f"  {'Metric':<8} {'Type':<5}  {'avg(all)':<10} {'min':<10} {'max':<10}  "
-              f"{'max(last6)':<12}  {'proxlb_spikes':<14}  Key")
+        print(f"  {'Metric':<8} {'Type':<5}  {'avg(all%)':<10} {'min%':<10} {'max%':<10}  "
+              f"{'MAX-cf peak':<12}  {'proxlb_spikes':<14}  Key")
         print(f"  {'-'*8} {'-'*5}  {'-'*10} {'-'*10} {'-'*10}  {'-'*12}  {'-'*14}  {'-'*20}")
 
         for metric in PSI_METRICS:
@@ -145,13 +160,9 @@ def main():
 
         if args.raw:
             # Show all field names that appear in the RRD data
-            all_keys = set()
-            for row in avg_rows:
-                all_keys.update(row.keys())
-            psi_keys = sorted(k for k in all_keys if "pressure" in k)
-            other_keys = sorted(k for k in all_keys if "pressure" not in k)
+            other_keys = sorted(k for k in all_avg_keys if "pressure" not in k)
             print()
-            print(f"  PSI fields in RRD data: {', '.join(psi_keys) if psi_keys else 'none'}")
+            print(f"  PSI fields present in RRD: {', '.join(present_psi_keys) if present_psi_keys else 'none'}")
             print(f"  Other fields: {', '.join(other_keys)}")
 
     print()
