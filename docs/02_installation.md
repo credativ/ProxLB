@@ -90,11 +90,13 @@ wget -O /etc/apt/keyrings/proxtools-archive-keyring.gpg https://packages.credati
 ### Container Images / Docker
 Using the ProxLB container images is straight forward and only requires you to mount the config file.
 
-Available images can be found at the GitHub [packages page](https://github.com/credativ/ProxLB/pkgs/container/proxlb).
+Available images can be found at the GitHub [packages page](https://github.com/credativ/ProxLB/pkgs/container/proxlb) or [Docker Hub](https://hub.docker.com/r/credativ/proxlb)..
 
 ```bash
-# Pull the image
+# Pull the image from GHCR
 docker pull ghcr.io/credativ/proxlb:latest
+# or Docker Hub
+docker pull credativ/proxlb:latest
 # Download the config
 wget -O proxlb.yaml https://raw.githubusercontent.com/gyptazy/ProxLB/refs/heads/main/config/proxlb_example.yaml
 # Adjust the config to your needs
@@ -103,7 +105,7 @@ vi proxlb.yaml
 docker run -it --rm -v $(pwd)/proxlb.yaml:/etc/proxlb/proxlb.yaml proxlb
 ```
 
-*Note: ProxLB container images are officially only available at ghcr.io/credativ/proxlb*
+*Note: ProxLB container images are officially only available at ghcr.io/credativ/proxlb or docker.io/credativ/proxlb*
 
 ### Source
 ProxLB can also easily be used from the provided sources - for traditional systems but also as a Docker/Podman container image.
