@@ -466,6 +466,10 @@ class Calculations:
                         logger.debug(f"Stopping relocation for guest {guest_name}: source node {source_node} is no longer the most loaded node.")
                         break
 
+                    # Recalculate the most free node before each guest migration
+                    # to account for resources consumed by previously planned moves.
+                    Calculations.get_most_free_node(proxlb_data)
+
                     if not Calculations.validate_node_resources(proxlb_data, guest_name):
                         if proxlb_data['meta']['balancing'].get('balance_next_node', None) is None:
                             logger.warning(f"Skipping relocation of guest {guest_name} due to no target node defined. This might affect affinity group {group_name}.")
