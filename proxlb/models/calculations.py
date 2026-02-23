@@ -12,9 +12,9 @@ __license__ = "GPL-3.0"
 
 import sys
 from typing import Optional, assert_never
-from ..utils.logger import SystemdLogger
-from ..utils.proxlb_data import ProxLbData
-from ..utils.config_parser import Config
+from proxlb.utils.logger import SystemdLogger
+from proxlb.utils.proxlb_data import ProxLbData
+from proxlb.utils.config_parser import Config
 
 BalancingResource = Config.Balancing.Resource
 BalancingMode = Config.Balancing.Mode

@@ -35,9 +35,9 @@ try:
 except ImportError:
     URLLIB3_PRESENT = False
 from typing import Any, Optional
-from .helper import Helper
-from .logger import SystemdLogger
-from .config_parser import Config
+from proxlb.utils.helper import Helper
+from proxlb.utils.logger import SystemdLogger
+from proxlb.utils.config_parser import Config
 from dataclasses import dataclass
 
 

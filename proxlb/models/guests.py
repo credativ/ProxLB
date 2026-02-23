@@ -9,13 +9,13 @@ __license__ = "GPL-3.0"
 
 
 from typing import Dict, Optional
-from ..utils.logger import SystemdLogger
-from ..utils.proxmox_api import ProxmoxApi
-from ..utils.config_parser import Config
-from ..utils.proxlb_data import ProxLbData
-from .pools import Pools
-from .ha_rules import HaRules
-from .tags import Tags
+from proxlb.utils.logger import SystemdLogger
+from proxlb.utils.proxmox_api import ProxmoxApi
+from proxlb.utils.config_parser import Config
+from proxlb.utils.proxlb_data import ProxLbData
+from proxlb.models.pools import Pools
+from proxlb.models.ha_rules import HaRules
+from proxlb.models.tags import Tags
 import time
 
 GuestType = Config.GuestType

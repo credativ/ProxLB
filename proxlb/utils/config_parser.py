@@ -19,7 +19,7 @@ from enum import StrEnum
 from typing import Optional, assert_never
 from pydantic import BaseModel, Field, ValidationError
 from pathlib import Path
-from .logger import SystemdLogger
+from proxlb.utils.logger import SystemdLogger
 
 
 if not PYYAML_PRESENT:

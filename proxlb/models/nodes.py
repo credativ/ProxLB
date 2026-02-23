@@ -23,10 +23,10 @@ __license__ = "GPL-3.0"
 
 import time
 from typing import Dict
-from ..utils.config_parser import Config
-from ..utils.logger import SystemdLogger
-from ..utils.proxlb_data import ProxLbData
-from ..utils.proxmox_api import ProxmoxApi
+from proxlb.utils.config_parser import Config
+from proxlb.utils.logger import SystemdLogger
+from proxlb.utils.proxlb_data import ProxLbData
+from proxlb.utils.proxmox_api import ProxmoxApi
 
 BalancingResource = Config.Balancing.Resource
 

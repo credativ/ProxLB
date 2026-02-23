@@ -12,11 +12,11 @@ __license__ = "GPL-3.0"
 
 import time
 from typing import Dict, List, assert_never
-from ..utils.logger import SystemdLogger
-from ..utils.helper import Helper
-from ..utils.config_parser import Config
-from ..utils.proxmox_api import ProxmoxApi
-from ..utils.proxlb_data import ProxLbData
+from proxlb.utils.logger import SystemdLogger
+from proxlb.utils.helper import Helper
+from proxlb.utils.config_parser import Config
+from proxlb.utils.proxmox_api import ProxmoxApi
+from proxlb.utils.proxlb_data import ProxLbData
 
 AffinityType = Config.AffinityType
 GuestType = Config.GuestType

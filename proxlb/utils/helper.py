@@ -14,10 +14,10 @@ import re
 import socket
 import sys
 import time
-from . import version
-from .config_parser import Config
-from .logger import SystemdLogger
-from .proxlb_data import ProxLbData
+from proxlb.utils import version
+from proxlb.utils.config_parser import Config
+from proxlb.utils.logger import SystemdLogger
+from proxlb.utils.proxlb_data import ProxLbData
 from typing import Dict, Tuple, Optional
 from types import FrameType
 

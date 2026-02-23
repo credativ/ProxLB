@@ -11,9 +11,9 @@ __license__ = "GPL-3.0"
 
 
 from typing import Dict
-from ..utils.logger import SystemdLogger
-from ..utils.helper import Helper
-from ..utils.proxlb_data import ProxLbData
+from proxlb.utils.logger import SystemdLogger
+from proxlb.utils.helper import Helper
+from proxlb.utils.proxlb_data import ProxLbData
 
 logger = SystemdLogger()
 

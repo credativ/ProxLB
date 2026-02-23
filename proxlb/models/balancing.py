@@ -13,10 +13,10 @@ __license__ = "GPL-3.0"
 import proxmoxer
 import time
 from itertools import islice
-from ..utils.logger import SystemdLogger
-from ..utils.proxmox_api import ProxmoxApi
-from ..utils.config_parser import Config
-from ..utils.proxlb_data import ProxLbData
+from proxlb.utils.logger import SystemdLogger
+from proxlb.utils.proxmox_api import ProxmoxApi
+from proxlb.utils.config_parser import Config
+from proxlb.utils.proxlb_data import ProxLbData
 from typing import Dict, Generator, Optional, assert_never
 
 GuestType = Config.GuestType

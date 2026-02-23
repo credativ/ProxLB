@@ -1,6 +1,6 @@
 from typing import Any, Literal, Optional, TypeVar, assert_never
 from pydantic import BaseModel
-from .config_parser import Config
+from proxlb.utils.config_parser import Config
 
 ConfigType = TypeVar("ConfigType", bound="Config")
 

@@ -9,9 +9,9 @@ __license__ = "GPL-3.0"
 
 
 from typing import Dict
-from ..utils.logger import SystemdLogger
-from ..utils.config_parser import Config
-from ..utils.proxlb_data import ProxLbData
+from proxlb.utils.logger import SystemdLogger
+from proxlb.utils.config_parser import Config
+from proxlb.utils.proxlb_data import ProxLbData
 from packaging import version
 
 BalancingResource = Config.Balancing.Resource

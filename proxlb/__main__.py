@@ -14,20 +14,20 @@ __license__ = "GPL-3.0"
 
 import logging
 import signal
-from .utils.logger import SystemdLogger
-from .utils.cli_parser import CliParser
-from .utils.config_parser import ConfigParser
-from .utils.proxmox_api import ProxmoxApi
-from .models.nodes import Nodes
-from .models.features import Features
-from .models.guests import Guests
-from .models.groups import Groups
-from .models.calculations import Calculations
-from .models.balancing import Balancing
-from .models.pools import Pools
-from .models.ha_rules import HaRules
-from .utils.helper import Helper
-from .utils.proxlb_data import ProxLbData
+from proxlb.utils.logger import SystemdLogger
+from proxlb.utils.cli_parser import CliParser
+from proxlb.utils.config_parser import ConfigParser
+from proxlb.utils.proxmox_api import ProxmoxApi
+from proxlb.models.nodes import Nodes
+from proxlb.models.features import Features
+from proxlb.models.guests import Guests
+from proxlb.models.groups import Groups
+from proxlb.models.calculations import Calculations
+from proxlb.models.balancing import Balancing
+from proxlb.models.pools import Pools
+from proxlb.models.ha_rules import HaRules
+from proxlb.utils.helper import Helper
+from proxlb.utils.proxlb_data import ProxLbData
 
 
 """
