@@ -2,7 +2,7 @@
 name: Feature request
 about: Create a new request for a missing feature
 title: "`Feature`: "
-labels: feature, needs-analysis
+labels: feature
 assignees: ''
 
 ---
