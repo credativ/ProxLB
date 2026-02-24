@@ -1,5 +1,5 @@
 ---
-name: Release preperation
+name: Release preparation
 about: Issue for release preparation
 title: ''
 labels: organization
