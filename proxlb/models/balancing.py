@@ -95,7 +95,7 @@ class Balancing:
 
                         # VM Balancing
                         if guest_meta.type == GuestType.Vm:
-                            if 'vm' in proxlb_data.meta.balancing.balance_types:
+                            if GuestType.Vm in proxlb_data.meta.balancing.balance_types:
                                 logger.debug(f"Balancing: Balancing for guest {guest_name} of type VM started.")
                                 job_id = self.exec_rebalancing_vm(proxmox_api, proxlb_data, guest_name)
                             else:
@@ -105,7 +105,7 @@ class Balancing:
 
                         # CT Balancing
                         elif guest_meta.type == GuestType.Ct:
-                            if 'ct' in proxlb_data.meta.balancing.balance_types:
+                            if GuestType.Ct in proxlb_data.meta.balancing.balance_types:
                                 logger.debug(f"Balancing: Balancing for guest {guest_name} of type CT started.")
                                 job_id = self.exec_rebalancing_ct(proxmox_api, proxlb_data, guest_name)
                             else:
