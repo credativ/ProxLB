@@ -11,10 +11,15 @@ __license__ = "GPL-3.0"
 
 
 import time
-from typing import List
-from typing import Dict, Any
-from utils.logger import SystemdLogger
-from utils.helper import Helper
+from typing import Dict, List, assert_never
+from proxlb.utils.logger import SystemdLogger
+from proxlb.utils.helper import Helper
+from proxlb.utils.config_parser import Config
+from proxlb.utils.proxmox_api import ProxmoxApi
+from proxlb.utils.proxlb_data import ProxLbData
+
+AffinityType = Config.AffinityType
+GuestType = Config.GuestType
 
 logger = SystemdLogger()
 
@@ -42,13 +47,13 @@ class Tags:
         get_ignore(tags: List[str]) -> bool:
             Evaluates and returns a boolean indicating whether the guest should be ignored based on the provided list of tags.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the tags class.
         """
 
     @staticmethod
-    def get_tags_from_guests(proxmox_api: any, node: str, guest_id: int, guest_type: str) -> List[str]:
+    def get_tags_from_guests(proxmox_api: ProxmoxApi, node: str, guest_id: int, guest_type: GuestType) -> List[str]:
         """
         Get tags for a guest from the Proxmox cluster by the API.
 
@@ -66,21 +71,23 @@ class Tags:
         """
         logger.debug("Starting: get_tags_from_guests.")
         time.sleep(0.1)
-        if guest_type == 'vm':
+        api_tags: str
+        if guest_type == GuestType.Vm:
             guest_config = proxmox_api.nodes(node).qemu(guest_id).config.get()
-            tags = guest_config.get("tags", [])
-        if guest_type == 'ct':
+            api_tags = guest_config.get("tags", "")
+        elif guest_type == GuestType.Ct:
             guest_config = proxmox_api.nodes(node).lxc(guest_id).config.get()
-            tags = guest_config.get("tags", [])
+            api_tags = guest_config.get("tags", "")
+        else:
+            assert_never(guest_type)
 
-        if isinstance(tags, str):
-            tags = tags.split(";")
+        tags = api_tags.split(";") if isinstance(api_tags, str) else []
 
         logger.debug("Finished: get_tags_from_guests.")
         return tags
 
     @staticmethod
-    def get_affinity_groups(tags: List[str], pools: List[str], ha_rules: List[str], proxlb_config: Dict[str, Any]) -> List[str]:
+    def get_affinity_groups(tags: List[str], pools: List[str], ha_rules: List[ProxLbData.HaRule], proxlb_config: Config) -> List[str]:
         """
         Get affinity tags for a guest from the Proxmox cluster by the API.
 
@@ -112,8 +119,8 @@ class Tags:
         # Pool based affinity groups
         if len(pools) > 0:
             for pool in pools:
-                if pool in (proxlb_config['balancing'].get('pools') or {}):
-                    if proxlb_config['balancing']['pools'][pool].get('type', None) == 'affinity':
+                if proxlb_config.balancing.pools and pool in proxlb_config.balancing.pools:
+                    if proxlb_config.balancing.pools[pool].type == AffinityType.PositiveAffinity:
                         logger.debug(f"Adding affinity group for pool {pool}.")
                         affinity_tags.append(pool)
                 else:
@@ -122,15 +129,15 @@ class Tags:
         # HA rule based affinity groups
         if len(ha_rules) > 0:
             for ha_rule in ha_rules:
-                if ha_rule.get('type', None) == 'affinity':
+                if ha_rule.type == AffinityType.PositiveAffinity:
                     logger.debug(f"Adding affinity group for ha-rule {ha_rule}.")
-                    affinity_tags.append(ha_rule['rule'])
+                    affinity_tags.append(ha_rule.rule)
 
         logger.debug("Finished: get_affinity_groups.")
         return affinity_tags
 
     @staticmethod
-    def get_anti_affinity_groups(tags: List[str], pools: List[str], ha_rules: List[str], proxlb_config: Dict[str, Any]) -> List[str]:
+    def get_anti_affinity_groups(tags: List[str], pools: List[str], ha_rules: List[ProxLbData.HaRule], proxlb_config: Config) -> List[str]:
         """
         Get anti-affinity tags for a guest from the Proxmox cluster by the API.
 
@@ -162,8 +169,8 @@ class Tags:
         # Pool based anti-affinity groups
         if len(pools) > 0:
             for pool in pools:
-                if pool in (proxlb_config['balancing'].get('pools') or {}):
-                    if proxlb_config['balancing']['pools'][pool].get('type', None) == 'anti-affinity':
+                if proxlb_config.balancing.pools and pool in proxlb_config.balancing.pools:
+                    if proxlb_config.balancing.pools[pool].type == AffinityType.NegativeAffinity:
                         logger.debug(f"Adding anti-affinity group for pool {pool}.")
                         anti_affinity_tags.append(pool)
                 else:
@@ -172,9 +179,9 @@ class Tags:
         # HA rule based anti-affinity groups
         if len(ha_rules) > 0:
             for ha_rule in ha_rules:
-                if ha_rule.get('type', None) == 'anti-affinity':
+                if ha_rule.type == AffinityType.NegativeAffinity:
                     logger.debug(f"Adding anti-affinity group for ha-rule {ha_rule}.")
-                    anti_affinity_tags.append(ha_rule['rule'])
+                    anti_affinity_tags.append(ha_rule.rule)
 
         logger.debug("Finished: get_anti_affinity_groups.")
         return anti_affinity_tags
@@ -210,7 +217,7 @@ class Tags:
         return ignore_tag
 
     @staticmethod
-    def get_node_relationships(tags: List[str], nodes: Dict[str, Any], pools: List[str], ha_rules: List[str], proxlb_config: Dict[str, Any]) -> str:
+    def get_node_relationships(tags: List[str], nodes: Dict[str, ProxLbData.Node], pools: List[str], ha_rules: List[ProxLbData.HaRule], proxlb_config: Config) -> List[str]:
         """
         Get a node relationship tag for a guest from the Proxmox cluster by the API to pin
         a guest to a node or by defined pools from ProxLB configuration.
@@ -226,7 +233,7 @@ class Tags:
             proxlb_config (Dict): A dict holding the ProxLB configuration.
 
         Returns:
-            Str: The related hypervisor node name(s).
+            List[str]: The related hypervisor node name(s).
         """
         logger.debug("Starting: get_node_relationships.")
         node_relationship_tags = []
@@ -247,12 +254,12 @@ class Tags:
                         logger.warning(f"Tag {node_relationship_tag} is invalid! Defined node does not exist in the cluster. Not applying pinning.")
 
         # Pool based node relationship
-        if len(pools) > 0:
+        if pools and proxlb_config.balancing.pools:
             logger.debug("Validating node pinning by pools.")
             for pool in pools:
-                if pool in (proxlb_config['balancing'].get('pools') or {}):
+                if pool in proxlb_config.balancing.pools:
 
-                    pool_nodes = proxlb_config['balancing']['pools'][pool].get('pin', None)
+                    pool_nodes = proxlb_config.balancing.pools[pool].pin
                     for node in pool_nodes if pool_nodes is not None else []:
 
                         # Validate if the node to pin is present in the cluster
@@ -270,14 +277,14 @@ class Tags:
         if len(ha_rules) > 0:
             logger.debug("Validating node pinning by ha-rules.")
             for ha_rule in ha_rules:
-                if len(ha_rule.get("nodes", 0)) > 0:
-                    if ha_rule.get("type", None) == "affinity":
-                        logger.debug(f"ha-rule {ha_rule['rule']} is of type affinity.")
-                        for node in ha_rule["nodes"]:
-                            logger.debug(f"Adding {node} as node relationship because of ha-rule {ha_rule['rule']}.")
+                if ha_rule.nodes:
+                    if ha_rule.type == AffinityType.PositiveAffinity:
+                        logger.debug(f"ha-rule {ha_rule.rule} is of type affinity.")
+                        for node in ha_rule.nodes:
+                            logger.debug(f"Adding {node} as node relationship because of ha-rule {ha_rule.rule}.")
                             node_relationship_tags.append(node)
                     else:
-                        logger.debug(f"ha-rule {ha_rule['rule']} is of type anti-affinity. Skipping node relationship addition.")
+                        logger.debug(f"ha-rule {ha_rule.rule} is of type anti-affinity. Skipping node relationship addition.")
 
         logger.debug("Finished: get_node_relationships.")
         return node_relationship_tags

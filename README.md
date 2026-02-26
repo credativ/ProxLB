@@ -209,7 +209,7 @@ vi config/proxlb.yaml
 
 Start ProxLB by Python3 on the system:
 ```bash
-python3 proxlb/main.py -c config/proxlb.yaml
+python3 -m proxlb -c config/proxlb.yaml
 ```
 
 #### Container Image

@@ -4,7 +4,7 @@ After=network-online.target pveproxy.service
 Wants=network-online.target pveproxy.service
 
 [Service]
-ExecStart=python3 /usr/lib/python3/dist-packages/proxlb/main.py -c /etc/proxlb/proxlb.yaml
+ExecStart=python3 -m proxlb -c /etc/proxlb/proxlb.yaml
 User=plb
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=process

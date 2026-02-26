@@ -16,6 +16,7 @@ __license__ = "GPL-3.0"
 import errno
 try:
     import proxmoxer
+    import proxmoxer.backends.https
     PROXMOXER_PRESENT = True
 except ImportError:
     PROXMOXER_PRESENT = False
@@ -33,9 +34,11 @@ try:
     URLLIB3_PRESENT = True
 except ImportError:
     URLLIB3_PRESENT = False
-from typing import Dict, Any
-from utils.helper import Helper
-from utils.logger import SystemdLogger
+from typing import Any, Optional
+from proxlb.utils.helper import Helper
+from proxlb.utils.logger import SystemdLogger
+from proxlb.utils.config_parser import Config
+from dataclasses import dataclass
 
 
 if not PROXMOXER_PRESENT:
@@ -50,8 +53,20 @@ if not REQUESTS_PRESENT:
     print("Error: The required library 'requests' is not installed.")
     sys.exit(1)
 
+import proxmoxer
+import requests  # noqa: F811 # keep for pyright
+import urllib3  # noqa: F811 # keep for pyright
 
 logger = SystemdLogger()
+
+
+@dataclass
+class Endpoint:
+    host: str
+    port: int
+
+    def __str__(self) -> str:
+        return f"{self.host}:{self.port}"
 
 
 class ProxmoxApi:
@@ -73,7 +88,7 @@ class ProxmoxApi:
             Initializes the ProxmoxApi instance with the provided configuration.
         __getattr__(name):
             Delegates attribute access to the proxmox_api object.
-        api_connect_get_hosts(proxmox_api_endpoints: list) -> str:
+        api_connect_get_hosts(proxmox_api_endpoints: list) -> tuple[str, int]:
             Determines a working Proxmox API host from a list of endpoints.
         test_api_proxmox_host(host: str) -> str:
             Tests connectivity to a Proxmox host by resolving its IP address.
@@ -84,7 +99,7 @@ class ProxmoxApi:
         api_connect(proxlb_config: Dict[str, Any]) -> proxmoxer.ProxmoxAPI:
             Establishes a connection to the Proxmox API using the provided configuration.
     """
-    def __init__(self, proxlb_config: Dict[str, Any]) -> None:
+    def __init__(self, proxlb_config: Config) -> None:
         """
         Initializes the ProxmoxApi instance with the provided configuration.
 
@@ -93,30 +108,27 @@ class ProxmoxApi:
         initialization process for debugging purposes.
 
         Args:
-            proxlb_config (Dict[str, Any]): A dictionary containing the Proxmox API configuration.
+            proxlb_config (utils.config_parser.Config): A dictionary containing the Proxmox API configuration.
         """
         logger.debug("Starting: ProxmoxApi initialization.")
         self.proxmox_api = self.api_connect(proxlb_config)
         self.test_api_user_permissions(self.proxmox_api)
         logger.debug("Finished: ProxmoxApi initialization.")
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         """
         Delegate attribute access to proxmox_api to the underlying proxmoxer module.
         """
         return getattr(self.proxmox_api, name)
 
-    def validate_config(self, proxlb_config: Dict[str, Any]) -> None:
+    def validate_config(self, proxlb_config: Config) -> None:
         """
         Validates the provided ProxLB configuration dictionary to ensure that it contains
         the necessary credentials for authentication and that the credentials are not
         mutually exclusive.
 
         Args:
-            proxlb_config (Dict[str, Any]): A dictionary containing the ProxLB configuration.
-                It must include a "proxmox_api" key with a nested dictionary that contains
-                either "user" and "password" keys for username/password authentication or
-                "token_id" and "token_secret" keys for API token authentication.
+            proxlb_config (utils.config_parser.Config): A dictionary containing the ProxLB configuration.
 
         Raises:
             SystemExit: If both pass/token_secret and API token authentication methods are
@@ -128,31 +140,24 @@ class ProxmoxApi:
             authentication methods are provided.
         """
         logger.debug("Starting: validate_config.")
-        if not proxlb_config.get("proxmox_api", False):
-            logger.critical(f"Config error. Please check your proxmox_api chapter in your config file.")
-            print(f"Config error. Please check your proxmox_api chapter in your config file.")
-            sys.exit(1)
 
-        proxlb_credentials = proxlb_config["proxmox_api"]
-        present_auth_pass = "pass" in proxlb_credentials
-        present_auth_secret = "token_secret" in proxlb_credentials
-        token_id = proxlb_credentials.get("token_id", None)
+        token_id = proxlb_config.proxmox_api.token_id
 
         if token_id:
             non_allowed_chars = ["@", "!"]
             for char in non_allowed_chars:
                 if char in token_id:
-                    logger.error(f"Wrong user/token format defined. User and token id must be splitted! Please see: https://github.com/gyptazy/ProxLB/blob/main/docs/03_configuration.md#required-permissions-for-a-user")
+                    logger.error("Wrong user/token format defined. User and token id must be splitted! Please see: https://github.com/gyptazy/ProxLB/blob/main/docs/03_configuration.md#required-permissions-for-a-user")
                     sys.exit(1)
 
-        if present_auth_pass and present_auth_secret:
-            logger.critical(f"Username/password and API token authentication are mutal exclusive. Please use only one!")
-            print(f"Username/password and API token authentication are mutal exclusive. Please use only one!")
+        if proxlb_config.proxmox_api.password and proxlb_config.proxmox_api.token_secret:
+            logger.critical("Username/password and API token authentication are mutal exclusive. Please use only one!")
+            print("Username/password and API token authentication are mutal exclusive. Please use only one!")
             sys.exit(1)
 
         logger.debug("Finished: validate_config.")
 
-    def api_connect_get_hosts(self, proxlb_config, proxmox_api_endpoints: list) -> str:
+    def api_connect_get_hosts(self, proxlb_config: Config) -> Endpoint:
         """
         Perform a connectivity test to determine a working host for the Proxmox API.
 
@@ -163,8 +168,7 @@ class ProxmoxApi:
         are found, one is chosen at random to distribute the load across the cluster.
 
         Args:
-            proxlb_config (Dict[str, Any]): A dictionary containing the ProxLB configuration.
-            proxmox_api_endpoints (list): A list of Proxmox API endpoints to test.
+            proxlb_config (utils.config_parser.Config): A dictionary containing the ProxLB configuration.
 
         Returns:
             str: A working Proxmox API host.
@@ -175,23 +179,21 @@ class ProxmoxApi:
         """
         logger.debug("Starting: api_connect_get_hosts.")
         # Pre-validate the given API endpoints
-        if not isinstance(proxmox_api_endpoints, list):
-            logger.critical("The proxmox_api hosts are not defined as a list type.")
-            sys.exit(1)
-        if not proxmox_api_endpoints:
+        if not proxlb_config.proxmox_api.hosts:
             logger.critical("No proxmox_api hosts are defined.")
             sys.exit(1)
 
-        validated_api_hosts: list[tuple[str, int]] = []
+        proxmox_api_endpoints = proxlb_config.proxmox_api.hosts
+        validated_api_hosts: list[Endpoint] = []
 
         for host in proxmox_api_endpoints:
-            retries = proxlb_config["proxmox_api"].get("retries", 1)
-            wait_time = proxlb_config["proxmox_api"].get("wait_time", 1)
+            retries = proxlb_config.proxmox_api.retries
+            wait_time = proxlb_config.proxmox_api.wait_time
 
             for attempt in range(retries):
-                candidate_host, candidate_port = self.test_api_proxmox_host(host)
-                if candidate_host:
-                    validated_api_hosts.append((candidate_host, candidate_port))
+                candidate = self.test_api_proxmox_host(host)
+                if candidate:
+                    validated_api_hosts.append(candidate)
                     break
                 else:
                     logger.warning(
@@ -201,15 +203,14 @@ class ProxmoxApi:
                     time.sleep(wait_time)
 
         if validated_api_hosts:
-            chosen_host, chosen_port = random.choice(validated_api_hosts)
-            return chosen_host, chosen_port
+            return random.choice(validated_api_hosts)
 
         logger.critical("No valid Proxmox API hosts found.")
         print("No valid Proxmox API hosts found.")
         logger.debug("Finished: api_connect_get_hosts.")
         sys.exit(1)
 
-    def test_api_proxmox_host(self, host: str) -> tuple[str, int | None, None]:
+    def test_api_proxmox_host(self, host: str) -> Optional[Endpoint]:
         """
         Tests the connectivity to a Proxmox host by resolving its IP address and
         checking both IPv4 and IPv6 addresses.
@@ -224,23 +225,20 @@ class ProxmoxApi:
             host (str): The hostname of the Proxmox server to test.
 
         Returns:
-            str: The hostname if the Proxmox server is reachable.
-            bool: False if the Proxmox server is not reachable.
+            Host: The Endpoint instance if the Proxmox server is reachable, or None
         """
         logger.debug("Starting: test_api_proxmox_host.")
 
         # Validate for custom port configurations (e.g., by given external
         # loadbalancer systems)
         host, port = Helper.get_host_port_from_string(host)
-        if port is None:
-            port = 8006
 
         # Try resolving DNS to IP and log non-resolvable ones
         try:
             infos = socket.getaddrinfo(host, None, socket.AF_UNSPEC)
         except socket.gaierror:
             logger.warning(f"Could not resolve {host}.")
-            return (None, None)
+            return None
 
         # Check both families that are actually present
         saw_family = set()
@@ -250,15 +248,15 @@ class ProxmoxApi:
         if socket.AF_INET in saw_family:
             logger.debug(f"{host} has IPv4.")
             if self.test_api_proxmox_host_ipv4(host, port):
-                return (host, port)
+                return Endpoint(host=host, port=port)
 
         if socket.AF_INET6 in saw_family:
             logger.debug(f"{host} has IPv6.")
             if self.test_api_proxmox_host_ipv6(host, port):
-                return (host, port)
+                return Endpoint(host=host, port=port)
 
         logger.debug("Finished: test_api_proxmox_host (unreachable).")
-        return (None, None)
+        return None
 
     def test_api_proxmox_host_ipv4(self, host: str, port: int = 8006, timeout: int = 1) -> bool:
         """
@@ -322,7 +320,7 @@ class ProxmoxApi:
         logger.debug("Finished: test_api_proxmox_host_ipv6.")
         return False
 
-    def test_api_user_permissions(self, proxmox_api: any):
+    def test_api_user_permissions(self, proxmox_api: proxmoxer.ProxmoxAPI) -> None:
         """
         Test the permissions of the current user/token used for the Proxmox API.
 
@@ -348,9 +346,10 @@ class ProxmoxApi:
                 sys.exit(1)
 
         # Get all available permissions of the current user/token
-        for path, permission in permissions.items():
-            for permission in permissions[path]:
-                permissions_available.append(permission)
+        if permissions:
+            for path, permission in permissions.items():
+                for permission in permissions[path]:
+                    permissions_available.append(permission)
 
         # Validate if all required permissions are included within the available permissions
         for required_permission in permissions_required:
@@ -360,7 +359,7 @@ class ProxmoxApi:
 
         logger.debug("Finished: test_api_user_permissions.")
 
-    def api_connect(self, proxlb_config: Dict[str, Any]) -> proxmoxer.ProxmoxAPI:
+    def api_connect(self, proxlb_config: Config) -> proxmoxer.ProxmoxAPI:
         """
         Establishes a connection to the Proxmox API using the provided configuration.
 
@@ -370,13 +369,7 @@ class ProxmoxApi:
         messages and exiting the program if necessary.
 
         Args:
-            proxlb_config (Dict[str, Any]): A dictionary containing the Proxmox API configuration. Expected keys include:
-                - "proxmox_api": A dictionary with the following keys:
-                    - "hosts" (List[str]): A list of Proxmox API host addresses.
-                    - "user" (str): The username for Proxmox API authentication.
-                    - "pass" (str): The password for Proxmox API authentication.
-                    - "ssl_verification" (bool): Whether to verify SSL certificates (default is True).
-                    - "timeout" (int): The timeout duration for API requests.
+            proxlb_config (utils.config_parser.Config): A dictionary containing the Proxmox API configuration.
 
         Returns:
             proxmoxer.ProxmoxAPI: An authenticated ProxmoxAPI object.
@@ -392,35 +385,35 @@ class ProxmoxApi:
         self.validate_config(proxlb_config)
 
         # Get a valid Proxmox API endpoint
-        proxmox_api_endpoint, proxmox_api_port = self.api_connect_get_hosts(proxlb_config, proxlb_config.get("proxmox_api", {}).get("hosts", []))
+        proxmox_api_endpoint = self.api_connect_get_hosts(proxlb_config)
 
         # Disable warnings for SSL certificate validation
-        if not proxlb_config.get("proxmox_api").get("ssl_verification", True):
+        if not proxlb_config.proxmox_api.ssl_verification:
             logger.warning(f"SSL certificate validation to host {proxmox_api_endpoint} is deactivated.")
             urllib3.disable_warnings(category=urllib3.exceptions.InsecureRequestWarning)
-            requests.packages.urllib3.disable_warnings()
+            requests.packages.urllib3.disable_warnings()  # type: ignore[attr-defined]
 
         # Login into Proxmox API and create API object
         try:
 
-            if proxlb_config.get("proxmox_api").get("token_secret", False):
+            if proxlb_config.proxmox_api.token_secret:
                 proxmox_api = proxmoxer.ProxmoxAPI(
-                    proxmox_api_endpoint,
-                    port=proxmox_api_port,
-                    user=proxlb_config.get("proxmox_api").get("user", True),
-                    token_name=proxlb_config.get("proxmox_api").get("token_id", True),
-                    token_value=proxlb_config.get("proxmox_api").get("token_secret", True),
-                    verify_ssl=proxlb_config.get("proxmox_api").get("ssl_verification", True),
-                    timeout=proxlb_config.get("proxmox_api").get("timeout", True))
+                    proxmox_api_endpoint.host,
+                    port=proxmox_api_endpoint.port,
+                    user=proxlb_config.proxmox_api.username,
+                    token_name=proxlb_config.proxmox_api.token_id,
+                    token_value=proxlb_config.proxmox_api.token_secret,
+                    verify_ssl=proxlb_config.proxmox_api.ssl_verification,
+                    timeout=proxlb_config.proxmox_api.timeout)
                 logger.debug("Using API token authentication.")
             else:
                 proxmox_api = proxmoxer.ProxmoxAPI(
-                    proxmox_api_endpoint,
-                    port=proxmox_api_port,
-                    user=proxlb_config.get("proxmox_api").get("user", True),
-                    password=proxlb_config.get("proxmox_api").get("pass", True),
-                    verify_ssl=proxlb_config.get("proxmox_api").get("ssl_verification", True),
-                    timeout=proxlb_config.get("proxmox_api").get("timeout", True))
+                    proxmox_api_endpoint.host,
+                    port=proxmox_api_endpoint.port,
+                    user=proxlb_config.proxmox_api.username,
+                    password=proxlb_config.proxmox_api.password,
+                    verify_ssl=proxlb_config.proxmox_api.ssl_verification,
+                    timeout=proxlb_config.proxmox_api.timeout)
                 logger.debug("Using username/password authentication.")
         except proxmoxer.backends.https.AuthenticationError as proxmox_api_error:
             logger.critical(f"Authentication failed. Please check the defined credentials: {proxmox_api_error}")

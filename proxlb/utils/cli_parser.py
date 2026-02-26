@@ -8,8 +8,9 @@ __license__ = "GPL-3.0"
 
 
 import argparse
-import utils.version
-from utils.logger import SystemdLogger
+from . import version
+from pathlib import Path
+from .logger import SystemdLogger
 
 logger = SystemdLogger()
 
@@ -18,7 +19,7 @@ class CliParser:
     """
     The CliParser class handles the parsing of command-line interface (CLI) arguments.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the CliParser class.
 
@@ -35,16 +36,16 @@ class CliParser:
 
         self.parser = argparse.ArgumentParser(
             description=(
-                f"{utils.version.__app_name__} ({utils.version.__version__}): "
-                f"{utils.version.__app_desc__}"
+                f"{version.__app_name__} ({version.__version__}): "
+                f"{version.__app_desc__}"
             )
         )
 
         self.parser.add_argument(
             "-c", "--config",
             help="Path to the configuration file",
-            type=str,
-            required=False
+            type=Path,
+            default=Path('/etc/proxlb/proxlb.yaml'),
         )
         self.parser.add_argument(
             "-d", "--dry-run",
@@ -84,7 +85,7 @@ class CliParser:
             argparse.Namespace: An object containing the parsed CLI arguments.
         """
         logger.debug("Starting: parse_args.")
-        logger.debug(self.parser.parse_args())
+        logger.debug(str(self.parser.parse_args()))
 
         logger.debug("Finished: parse_args.")
         return self.parser.parse_args()

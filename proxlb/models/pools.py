@@ -8,10 +8,11 @@ __copyright__ = "Copyright (C) 2025 Florian Paul Azim Hoberg (@gyptazy)"
 __license__ = "GPL-3.0"
 
 
-from typing import Dict, Any
-from utils.logger import SystemdLogger
-from models.tags import Tags
-import time
+from typing import Dict
+from proxlb.utils.config_parser import Config
+from proxlb.utils.logger import SystemdLogger
+from proxlb.utils.proxmox_api import ProxmoxApi
+from proxlb.utils.proxlb_data import ProxLbData
 
 logger = SystemdLogger()
 
@@ -31,13 +32,13 @@ class Pools:
             {"name": <poolid>, "members": [<member_names>...]}.
             This method does not collect per-member metrics or perform node filtering.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the Pools class with the provided ProxLB data.
         """
 
     @staticmethod
-    def get_pools(proxmox_api: any) -> Dict[str, Any]:
+    def get_pools(proxmox_api: ProxmoxApi) -> Dict[str, ProxLbData.Pool]:
         """
         Retrieve all pools and their members from a Proxmox cluster.
 
@@ -54,16 +55,14 @@ class Pools:
                     to {"name": <poolid>, "members": [<member_names>...]}.
         """
         logger.debug("Starting: get_pools.")
-        pools = {"pools": {}}
+        pools: dict[str, ProxLbData.Pool] = {}
 
         # Pool objects: iterate over all pools in the cluster.
         # We keep pool members even if their nodes are ignored so resource accounting
         # for rebalancing remains correct and we avoid overprovisioning nodes.
         for pool in proxmox_api.pools.get():
             logger.debug(f"Got pool: {pool['poolid']}")
-            pools['pools'][pool['poolid']] = {}
-            pools['pools'][pool['poolid']]['name'] = pool['poolid']
-            pools['pools'][pool['poolid']]['members'] = []
+            pools[pool['poolid']] = ProxLbData.Pool(name=pool['poolid'])
 
             # Fetch pool details and collect member names
             try:
@@ -80,13 +79,13 @@ class Pools:
                     continue
 
                 logger.debug(f"Got member: {member['name']} for pool: {pool['poolid']}")
-                pools['pools'][pool['poolid']]['members'].append(member["name"])
+                pools[pool['poolid']].members.append(member['name'])
 
         logger.debug("Finished: get_pools.")
         return pools
 
     @staticmethod
-    def get_pools_for_guest(guest_name: str, pools: Dict[str, Any]) -> Dict[str, Any]:
+    def get_pools_for_guest(guest_name: str, pools: Dict[str, ProxLbData.Pool]) -> list[str]:
         """
         Return the list of pool names that include the given guest.
 
@@ -100,29 +99,23 @@ class Pools:
             list[str]: Names of pools the guest is a member of (empty list if none).
         """
         logger.debug("Starting: get_pools_for_guests.")
-        guest_pools = []
+        guest_pools: list[str] = []
 
-        for pool in pools.items():
-            for pool_id, pool_data in pool[1].items():
+        for pool_id, pool_data in pools.items():
 
-                if type(pool_data) is dict:
-                    pool_name = pool_data.get("name", "")
-                    pool_name_members = pool_data.get("members", [])
+            pool_name = pool_data.name
 
-                    if guest_name in pool_name_members:
-                        logger.debug(f"Guest: {guest_name} is member of Pool: {pool_name}.")
-                        guest_pools.append(pool_name)
-                    else:
-                        logger.debug(f"Guest: {guest_name} is NOT member of Pool: {pool_name}.")
-
-                else:
-                    logger.debug(f"Pool data for pool_id {pool_id} is not a dict: {pool_data}")
+            if guest_name in pool_data.members:
+                logger.debug(f"Guest: {guest_name} is member of Pool: {pool_name}.")
+                guest_pools.append(pool_name)
+            else:
+                logger.debug(f"Guest: {guest_name} is NOT member of Pool: {pool_name}.")
 
         logger.debug("Finished: get_pools_for_guests.")
         return guest_pools
 
     @staticmethod
-    def get_pool_node_affinity_strictness(proxlb_config: Dict[str, Any], guest_pools: list) -> bool:
+    def get_pool_node_affinity_strictness(proxlb_config: Config, guest_pools: list[str]) -> bool:
         """
         Retrieve the node affinity strictness setting for a guest across its pools.
 
@@ -131,7 +124,7 @@ class Pools:
         strictness setting from the first matching pool configuration.
 
         Args:
-            proxlb_config (Dict[str, Any]):     ProxLB configuration dictionary.
+            proxlb_config (utils.config_parser.Config): ProxLB configuration dictionary.
             guest_pools (list):                 List of pool names the guest belongs to.
 
         Returns:
@@ -141,8 +134,8 @@ class Pools:
 
         node_strictness = True
         for pool in guest_pools:
-            pool_settings = proxlb_config.get("balancing", {}).get("pools", {}).get(pool, {})
-            node_strictness = pool_settings.get("strict", True)
+            if proxlb_config.balancing.pools and pool in proxlb_config.balancing.pools:
+                node_strictness = proxlb_config.balancing.pools[pool].strict
 
         logger.debug("Finished: get_pool_node_affinity_strictness.")
         return node_strictness

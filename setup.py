@@ -14,9 +14,10 @@ setup(
     install_requires=[
         "packaging",
         "proxmoxer",
+        "pydantic",
         "pyyaml",
         "requests",
         "urllib3",
     ],
-        data_files=[('/etc/systemd/system', ['service/proxlb.service']), ('/etc/proxlb/', ['config/proxlb_example.yaml'])],
+    data_files=[('/etc/systemd/system', ['service/proxlb.service']), ('/etc/proxlb/', ['config/proxlb_example.yaml'])],
 )

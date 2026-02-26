@@ -3,7 +3,7 @@ Maintainer: Florian Paul Azim Hoberg <gyptazy@gyptazy.com>
 Section: admin
 Priority: optional
 Standards-Version: 4.5.0
-Build-Depends: debhelper-compat (= 13), dh-python, python3-all, python3-setuptools
+Build-Depends: debhelper-compat (= 13), dh-python, python3-all, python3-pydantic, python3-setuptools
 
 Package: proxlb
 Architecture: all
