@@ -67,7 +67,7 @@ class Nodes:
             if node["status"] == "online" and not Nodes.set_node_ignore(proxlb_config, node["node"]):
 
                 cpu_used = node["cpu"] * node["maxcpu"]
-                # FIXME: This formula makes cpu_free negative??
+                # node["cpu"] is a utilization fraction (0.0–1.0)
                 cpu_free = (node["maxcpu"]) - (node["cpu"] * node["maxcpu"])
                 disk_free = node["maxdisk"] - node["disk"]
                 disk_used = node["disk"]
