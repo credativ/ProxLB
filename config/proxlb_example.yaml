@@ -91,6 +91,8 @@ service:
 
 # solver:
 #   enable: False                        # Set to True to run CP-SAT solver in shadow/read-only mode
+#   mode: shadow                         # "shadow" (default, read-only) or "active" (solver executes migrations)
+#   active_step_retries: 3               # Max re-solve attempts per failed step (active mode only)
 #   log_dir: /var/log/proxlb/solver      # Directory for structured JSONL run logs (one file per run)
 #   use_reservations: True               # Apply node_resource_reserve from balancing config (default: True).
 #                                        #   False lets the solver treat full hardware RAM as available.

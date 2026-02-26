@@ -103,11 +103,11 @@ def main():
             Calculations.relocate_guests(proxlb_data)
             # Shadow solver (optional, read-only — never touches the cluster)
             _solver_cfg = proxlb_config.get("solver", {})
-            _run_file = None
+            _run_file, _solver_plan = None, None
             if _solver_cfg.get("enable", False):
                 try:
                     from proxlb_solver.shadow import run_shadow
-                    _run_file = run_shadow(proxlb_data, _solver_cfg)
+                    _run_file, _solver_plan = run_shadow(proxlb_data, _solver_cfg)
                 except ImportError:
                     logger.warning("[solver] proxlb_solver not installed, shadow mode disabled.")
             Helper.log_node_metrics(proxlb_data, init=False)
@@ -115,7 +115,20 @@ def main():
             # Perform balancing actions via Proxmox API
             if proxlb_data["meta"]["balancing"].get("enable", False):
                 if not cli_args.dry_run:
-                    Balancing(proxmox_api, proxlb_data)
+                    _active = (_solver_cfg.get("mode") == "active"
+                               and _solver_plan is not None)
+                    if _active:
+                        try:
+                            from proxlb_solver.shadow import execute_solver_plan
+                            execute_solver_plan(proxmox_api, proxlb_data,
+                                                _solver_plan, _solver_cfg, _run_file)
+                        except Exception as exc:
+                            logger.warning(
+                                f"[solver] active execution failed, falling back to "
+                                f"ProxLB plan: {exc}")
+                            Balancing(proxmox_api, proxlb_data)
+                    else:
+                        Balancing(proxmox_api, proxlb_data)
 
             # Record whether balancing was executed or skipped (dry-run)
             if _run_file:
