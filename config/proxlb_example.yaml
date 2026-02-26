@@ -88,3 +88,13 @@ service:
     time: 1
     format: hours
   log_level: INFO
+
+# solver:
+#   enable: False                        # Set to True to run CP-SAT solver in shadow/read-only mode
+#   log_dir: /var/log/proxlb/solver      # Directory for structured JSONL run logs (one file per run)
+#   use_reservations: True               # Apply node_resource_reserve from balancing config (default: True).
+#                                        #   False lets the solver treat full hardware RAM as available.
+#   balanciness: 3                       # Optional: override balanciness level (1-5); default: from balancing.balanciness
+#   method: memory                       # Optional: override balancing method; choices: memory | cpu | disk |
+#                                        #   memory_smart | cpu_smart | io_smart | global_smart
+#   timeout_seconds: 30                  # Optional: CP-SAT solver time limit in seconds (default: 30)

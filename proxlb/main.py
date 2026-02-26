@@ -101,12 +101,29 @@ def main():
             Calculations.relocate_guests_on_maintenance_nodes(proxlb_data)
             Calculations.get_balanciness(proxlb_data)
             Calculations.relocate_guests(proxlb_data)
+            # Shadow solver (optional, read-only — never touches the cluster)
+            _solver_cfg = proxlb_config.get("solver", {})
+            _run_file = None
+            if _solver_cfg.get("enable", False):
+                try:
+                    from proxlb_solver.shadow import run_shadow
+                    _run_file = run_shadow(proxlb_data, _solver_cfg)
+                except ImportError:
+                    logger.warning("[solver] proxlb_solver not installed, shadow mode disabled.")
             Helper.log_node_metrics(proxlb_data, init=False)
 
             # Perform balancing actions via Proxmox API
             if proxlb_data["meta"]["balancing"].get("enable", False):
                 if not cli_args.dry_run:
                     Balancing(proxmox_api, proxlb_data)
+
+            # Record whether balancing was executed or skipped (dry-run)
+            if _run_file:
+                try:
+                    from proxlb_solver.shadow import finalize_run
+                    finalize_run(_run_file, dry_run=cli_args.dry_run)
+                except Exception:
+                    pass
 
         # Validate if the JSON output should be
         # printed to stdout
