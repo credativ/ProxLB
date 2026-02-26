@@ -231,8 +231,10 @@ class Nodes:
         if spikes:
             # RRD data is collected every minute, so we look at the last 6 entries
             # and take the maximum value to represent the spike
-            _rrd_data_value = [row.get(lookup_key) for row in node_data_rrd if row.get(lookup_key) is not None]
-            rrd_data_value = max(_rrd_data_value[-6:], default=0.0)
+            rrd_data_value = max(
+                [row.get(lookup_key) for row in node_data_rrd if row.get(lookup_key) is not None][-6:],
+                default=0.0,
+            )
         else:
             # Calculate the average value from the RRD data entries
             rrd_data_value = sum(entry.get(lookup_key, 0.0) for entry in node_data_rrd) / len(node_data_rrd)
