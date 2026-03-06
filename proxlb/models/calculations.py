@@ -837,14 +837,8 @@ class Calculations:
             return False
 
         node_memory_free = proxlb_data.nodes[node_target].memory.free
-        # FIXME: local variable is assigned to but never used
-        node_cpu_free = proxlb_data.nodes[node_target].cpu.free  # noqa
-        node_disk_free = proxlb_data.nodes[node_target].disk.free  # noqa
 
         guest_memory_required = proxlb_data.guests[guest_name].memory.used
-        # FIXME: local variable is assigned to but never used. Dead code or missing functionality?
-        guest_cpu_required = proxlb_data.guests[guest_name].cpu.used  # noqa
-        guest_disk_required = proxlb_data.guests[guest_name].disk.used  # noqa
 
         if guest_memory_required < node_memory_free:
             logger.debug(f"Node '{node_target}' has sufficient resources ({node_memory_free / (1024 ** 3):.2f} GB free) for guest '{guest_name}'.")
