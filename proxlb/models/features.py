@@ -8,10 +8,14 @@ __copyright__ = "Copyright (C) 2025 Florian Paul Azim Hoberg (@gyptazy)"
 __license__ = "GPL-3.0"
 
 
-from typing import List
-from typing import Dict, Any
-from utils.logger import SystemdLogger
+from typing import Dict
+from proxlb.utils.logger import SystemdLogger
+from proxlb.utils.config_parser import Config
+from proxlb.utils.proxlb_data import ProxLbData
 from packaging import version
+
+BalancingResource = Config.Balancing.Resource
+BalancingMode = Config.Balancing.Mode
 
 logger = SystemdLogger()
 
@@ -36,13 +40,13 @@ class Features:
     Notes:
         - Expects proxlb_data to be a dict with "nodes" and "meta" keys.
     """
-    def __init__(self):
+    def __init__(self) -> None:
         """
         Initializes the Features class.
         """
 
     @staticmethod
-    def validate_available_features(proxlb_data: any) -> None:
+    def validate_available_features(proxlb_data: ProxLbData) -> None:
         """
         Validate and adjust feature flags in the provided proxlb_data according to Proxmox VE versions.
 
@@ -74,23 +78,22 @@ class Features:
         """
         logger.debug("Starting: validate_available_features.")
 
-        any_non_pve9_node = any(version.parse(n['pve_version']) < version.parse("9.0.0") for n in proxlb_data["nodes"].values())
+        any_non_pve9_node = any(version.parse(n.pve_version) < version.parse("9.0.0") for n in proxlb_data.nodes.values())
         if any_non_pve9_node:
 
-            with_conntrack_state = proxlb_data["meta"].get("balancing", {}).get("with_conntrack_state", False)
+            with_conntrack_state = proxlb_data.meta.balancing.with_conntrack_state
             if with_conntrack_state:
                 logger.warning("Non Proxmox VE 9 systems detected: Deactivating migration option 'with-conntrack-state'!")
-                proxlb_data["meta"]["balancing"]["with_conntrack_state"] = False
+                proxlb_data.meta.balancing.with_conntrack_state = False
 
-            psi_balancing = proxlb_data["meta"].get("balancing", {}).get("mode", None)
-            if psi_balancing == "psi":
+            if proxlb_data.meta.balancing.mode == BalancingMode.Psi:
                 logger.warning("Non Proxmox VE 9 systems detected: Deactivating balancing!")
-                proxlb_data["meta"]["balancing"]["enable"] = False
+                proxlb_data.meta.balancing.enable = False
 
         logger.debug("Finished: validate_available_features.")
 
     @staticmethod
-    def validate_any_non_pve9_node(meta: any, nodes: any) -> dict:
+    def validate_any_non_pve9_node(proxlb_config: Config, nodes: Dict[str, ProxLbData.Node]) -> ProxLbData.Meta:
         """
         Validate if any node in the cluster is running Proxmox VE < 9.0.0 and update meta accordingly.
 
@@ -112,13 +115,13 @@ class Features:
             - Version comparison uses semantic version parsing; defaults to "0.0.0" if pve_version is missing.
         """
         logger.debug("Starting: validate_any_non_pve9_node.")
-        any_non_pve9_node = any(version.parse(node.get("pve_version", "0.0.0")) < version.parse("9.0.0") for node in nodes.get("nodes", {}).values())
+        any_non_pve9_node = any(version.parse(node.pve_version) < version.parse("9.0.0") for node in nodes.values())
 
         if any_non_pve9_node:
-            meta["meta"]["cluster_non_pve9"] = True
+            cluster_non_pve9 = True
             logger.debug("Finished: validate_any_non_pve9_node. Result: True")
         else:
-            meta["meta"]["cluster_non_pve9"] = False
+            cluster_non_pve9 = False
             logger.debug("Finished: validate_any_non_pve9_node. Result: False")
 
-        return meta
+        return ProxLbData.Meta.from_config(proxlb_config, cluster_non_pve9=cluster_non_pve9)

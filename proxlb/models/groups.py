@@ -10,9 +10,10 @@ __copyright__ = "Copyright (C) 2025 Florian Paul Azim Hoberg (@gyptazy)"
 __license__ = "GPL-3.0"
 
 
-from typing import Dict, Any
-from utils.logger import SystemdLogger
-from utils.helper import Helper
+from typing import Dict
+from proxlb.utils.logger import SystemdLogger
+from proxlb.utils.helper import Helper
+from proxlb.utils.proxlb_data import ProxLbData
 
 logger = SystemdLogger()
 
@@ -32,7 +33,7 @@ class Groups:
             based on the provided data.
     """
 
-    def __init__(self, proxlb_data: Dict[str, Any]):
+    def __init__(self, proxlb_data: ProxLbData):
         """
         Initializes the Groups class with the provided ProxLB data.
 
@@ -41,7 +42,7 @@ class Groups:
         """
 
     @staticmethod
-    def get_groups(guests: Dict[str, Any], nodes: Dict[str, Any]) -> Dict[str, Any]:
+    def get_groups(guests: Dict[str, ProxLbData.Guest], nodes: Dict[str, ProxLbData.Node]) -> ProxLbData.Groups:
         """
         Generates and returns a dictionary of affinity and anti-affinity groups based on the provided data.
 
@@ -57,15 +58,14 @@ class Groups:
                               is defined to be in maintenance.
         """
         logger.debug("Starting: get_groups.")
-        groups = {'groups': {'affinity': {}, 'anti_affinity': {}, 'maintenance': []}}
+        groups: ProxLbData.Groups = ProxLbData.Groups()
 
-        for guest_name, guest_meta in guests["guests"].items():
+        for guest_name, guest_meta in guests.items():
             # Create affinity grouping
             # Use an affinity group if available for the guest
-            if len(guest_meta["affinity_groups"]) > 0:
-                for affinity_group in guest_meta["affinity_groups"]:
-                    group_name = affinity_group
-                    logger.debug(f'Affinity group {affinity_group} for {guest_name} will be used.')
+            if guest_meta.affinity_groups:
+                group_name = guest_meta.affinity_groups[-1]
+                logger.debug(f'Affinity group {group_name} for {guest_name} will be used.')
             else:
                 # Generate a random uniq group name for the guest if
                 # the guest does not belong to any affinity group
@@ -73,52 +73,52 @@ class Groups:
                 group_name = random_group
                 logger.debug(f'Random uniq group {random_group} for {guest_name} will be used.')
 
-            if not groups["groups"]["affinity"].get(group_name, False):
+            if group_name not in groups.affinity:
                 # Create group template with initial guest meta information
-                groups["groups"]["affinity"][group_name] = {}
-                groups["groups"]["affinity"][group_name]["guests"] = []
-                groups["groups"]["affinity"][group_name]["guests"].append(guest_name)
-                groups["groups"]["affinity"][group_name]["counter"] = 1
-                # Create groups resource template by the guests resources
-                groups["groups"]["affinity"][group_name]["cpu_total"] = guest_meta["cpu_total"]
-                groups["groups"]["affinity"][group_name]["cpu_used"] = guest_meta["cpu_used"]
-                groups["groups"]["affinity"][group_name]["memory_total"] = guest_meta["memory_total"]
-                groups["groups"]["affinity"][group_name]["memory_used"] = guest_meta["cpu_used"]
-                groups["groups"]["affinity"][group_name]["disk_total"] = guest_meta["disk_total"]
-                groups["groups"]["affinity"][group_name]["disk_used"] = guest_meta["cpu_used"]
+                groups.affinity[group_name] = ProxLbData.Groups.Affinity(
+                    guests=[guest_name],
+                    # Create groups resource template by the guests resources
+                    cpu=ProxLbData.Groups.Affinity.Metric(
+                        total=guest_meta.cpu.total,
+                        used=guest_meta.cpu.used,
+                    ),
+                    disk=ProxLbData.Groups.Affinity.Metric(
+                        total=guest_meta.disk.total,
+                        used=guest_meta.disk.used,
+                    ),
+                    memory=ProxLbData.Groups.Affinity.Metric(
+                        total=guest_meta.memory.total,
+                        used=guest_meta.memory.used,
+                    ),
+                )
             else:
                 # Update group templates by guest meta information
-                groups["groups"]["affinity"][group_name]["guests"].append(guest_name)
-                groups["groups"]["affinity"][group_name]["counter"] += 1
+                groups.affinity[group_name].guests.append(guest_name)
+                groups.affinity[group_name].counter += 1
                 # Update group resources by guest resources
-                groups["groups"]["affinity"][group_name]["cpu_total"] += guest_meta["cpu_total"]
-                groups["groups"]["affinity"][group_name]["cpu_used"] += guest_meta["cpu_used"]
-                groups["groups"]["affinity"][group_name]["memory_total"] += guest_meta["memory_total"]
-                groups["groups"]["affinity"][group_name]["memory_used"] += guest_meta["cpu_used"]
-                groups["groups"]["affinity"][group_name]["disk_total"] += guest_meta["disk_total"]
-                groups["groups"]["affinity"][group_name]["disk_used"] += guest_meta["cpu_used"]
+                groups.affinity[group_name].cpu.total += guest_meta.cpu.total
+                groups.affinity[group_name].cpu.used += guest_meta.cpu.used
+                groups.affinity[group_name].memory.total += guest_meta.memory.total
+                groups.affinity[group_name].memory.used += guest_meta.cpu.used  # FIXME: memory vs. cpu
+                groups.affinity[group_name].disk.total += guest_meta.disk.total
+                groups.affinity[group_name].disk.used += guest_meta.cpu.used  # FIXME: disk vs cpu
 
             # Create anti-affinity grouping
-            if len(guest_meta["anti_affinity_groups"]) > 0:
-                for anti_affinity_group in guest_meta["anti_affinity_groups"]:
-                    anti_affinity_group_name = anti_affinity_group
+            if len(guest_meta.anti_affinity_groups) > 0:
+                for anti_affinity_group_name in guest_meta.anti_affinity_groups:
                     logger.debug(f'Anti-affinity group {anti_affinity_group_name} for {guest_name} will be used.')
 
-                    if not groups["groups"]["anti_affinity"].get(anti_affinity_group_name, False):
-                        groups["groups"]["anti_affinity"][anti_affinity_group_name] = {}
-                        groups["groups"]["anti_affinity"][anti_affinity_group_name]["guests"] = []
-                        groups["groups"]["anti_affinity"][anti_affinity_group_name]["guests"].append(guest_name)
-                        groups["groups"]["anti_affinity"][anti_affinity_group_name]["counter"] = 1
-                        groups["groups"]["anti_affinity"][anti_affinity_group_name]["used_nodes"] = []
+                    if anti_affinity_group_name not in groups.anti_affinity:
+                        groups.anti_affinity[anti_affinity_group_name] = ProxLbData.Groups.AntiAffinity(guests=[guest_name])
                     else:
-                        groups["groups"]["anti_affinity"][anti_affinity_group_name]["guests"].append(guest_name)
-                        groups["groups"]["anti_affinity"][anti_affinity_group_name]["counter"] += 1
+                        groups.anti_affinity[anti_affinity_group_name].guests.append(guest_name)
+                        groups.anti_affinity[anti_affinity_group_name].counter += 1
 
             # Create grouping of guests that are currently located on nodes that are
             # marked as in maintenance and must be migrated
-            if nodes["nodes"][guest_meta["node_current"]]["maintenance"]:
-                logger.debug(f'{guest_name} will be migrated to another node because the underlying node {guest_meta["node_current"]} is defined to be in maintenance.')
-                groups["groups"]["maintenance"].append(guest_name)
+            if nodes[guest_meta.node_current].maintenance:
+                logger.debug(f'{guest_name} will be migrated to another node because the underlying node {guest_meta.node_current} is defined to be in maintenance.')
+                groups.maintenance.append(guest_name)
 
         logger.debug("Finished: get_groups.")
         return groups

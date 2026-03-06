@@ -1,5 +1,6 @@
 packaging
 proxmoxer
+pydantic
 requests
 urllib3
 PyYAML
