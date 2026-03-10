@@ -233,3 +233,4 @@ its greedy Balancing().
 - **Active mode and PVE HA.** VMs managed by Proxmox HA that cannot be placed by the solver (e.g.
   due to unresolvable dependency cycles) are handed back to ProxLB Balancing() with their original
   `node_target`, allowing PVE HA to handle them through its own mechanisms.
+||||||| parent of 12d7030 (docs(solver): add CP-SAT solver integration documentation)
