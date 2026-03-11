@@ -256,9 +256,9 @@ def test_spread_improves_after_relocation() -> None:
     )
 
 
-def test_original_report_scenario() -> None:
+def test_real_world_scenario() -> None:
     """
-    Reproduces the cluster state from the original bug report:
+    Real-world cluster state that triggered the stacking bug:
 
       Node 158: 57%  (8.9 / 15.6 GB)
       Node 166: 11%  (1.7 / 15.6 GB)

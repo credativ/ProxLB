@@ -1,4 +1,8 @@
 [tool.mypy]
 strict = true
 python_version = "3.12"
-mypy_path = ["../proxlb-solver"]
+
+[[tool.mypy.overrides]]
+# proxlb-solver is an optional runtime dependency; ignore it when not installed.
+module = ["proxlb_solver.*"]
+ignore_missing_imports = true

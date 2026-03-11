@@ -132,7 +132,7 @@ solver:
 |-----|------|---------|-------------|
 | `enable` | bool | `False` | Enable the solver integration. When `False`, ProxLB behaves as if the package is not installed. |
 | `mode` | string | `shadow` | `shadow` — observe only; `active` — solver drives migrations. |
-| `log_dir` | string | `/var/log/proxlb/solver` | Directory for JSONL run logs and HTML reports. Created automatically if absent. |
+| `log_dir` | string | `/var/log/proxlb/solver` | Directory for JSONL run logs and HTML reports. Created automatically if absent. The user running ProxLB must have write access (see [Log directory permissions](#logging-and-reports)). |
 | `timeout_seconds` | float | `30.0` | Wall-clock time limit given to the CP-SAT solver per solve (initial solve and each re-solve in active mode). |
 | `use_reservations` | bool | `True` | When `True`, memory reservations defined in `balancing.node_resource_reserve` are applied as hard constraints in the solver (capacity is reduced by the configured GB). |
 | `active_step_retries` | int | `3` | Maximum number of re-solve attempts in active mode. After this many failures the remaining VMs are handed back to ProxLB's Balancing(). |
