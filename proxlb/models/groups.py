@@ -99,9 +99,9 @@ class Groups:
                 groups.affinity[group_name].cpu.total += guest_meta.cpu.total
                 groups.affinity[group_name].cpu.used += guest_meta.cpu.used
                 groups.affinity[group_name].memory.total += guest_meta.memory.total
-                groups.affinity[group_name].memory.used += guest_meta.cpu.used  # FIXME: memory vs. cpu
+                groups.affinity[group_name].memory.used += guest_meta.memory.used
                 groups.affinity[group_name].disk.total += guest_meta.disk.total
-                groups.affinity[group_name].disk.used += guest_meta.cpu.used  # FIXME: disk vs cpu
+                groups.affinity[group_name].disk.used += guest_meta.disk.used
 
             # Create anti-affinity grouping
             if len(guest_meta.anti_affinity_groups) > 0:
