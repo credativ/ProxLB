@@ -14,6 +14,7 @@ __license__ = "GPL-3.0"
 
 import logging
 import signal
+from typing import Any
 from proxlb.utils.logger import SystemdLogger
 from proxlb.utils.cli_parser import CliParser
 from proxlb.utils.config_parser import ConfigParser
@@ -110,10 +111,11 @@ while True:
 
         # CP-SAT solver (optional) — shadow (read-only) or active mode.
         _solver_cfg = proxlb_config.solver
-        _run_file, _solver_plan, _solver_shadow = None, None, None
+        _run_file, _solver_plan = None, None
+        _solver_shadow: Any = None
         if _solver_cfg.enable:
             try:
-                from proxlb_solver import shadow as _solver_shadow
+                from proxlb_solver import shadow as _solver_shadow  # type: ignore[import-not-found, no-redef]
                 _run_file, _solver_plan = _solver_shadow.run_shadow(
                     proxlb_data, _solver_cfg
                 )

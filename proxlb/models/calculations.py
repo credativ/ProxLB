@@ -447,6 +447,11 @@ class Calculations:
                     logger.debug("Skipping further guest relocations as balanciness is now ok.")
                     break
 
+                # Recalculate the most free node before each group so that
+                # migrations from a previous group are reflected in the target
+                # selection (prevents stacking all guests on the same node).
+                Calculations.get_most_free_node(proxlb_data)
+
                 for guest_name in proxlb_data.groups.affinity[group_name].guests:
 
                     # Stop moving guests if the source node is no longer the most loaded

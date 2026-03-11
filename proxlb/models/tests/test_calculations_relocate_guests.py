@@ -16,101 +16,116 @@ __license__ = "GPL-3.0"
 
 
 from proxlb.models.calculations import Calculations
-
+from proxlb.utils.config_parser import Config
+from proxlb.utils.proxlb_data import ProxLbData
 
 GB = 1024 ** 3
+BalancingResource = Config.Balancing.Resource
 
 
-def _make_node(name, mem_used_gb, mem_total_gb):
-    """Helper to build a node dict with consistent fields."""
-    used = mem_used_gb * GB
-    total = mem_total_gb * GB
+def _make_node_metric(total_gb: float, used_gb: float) -> ProxLbData.Node.Metric:
+    total = int(total_gb * GB)
+    used = used_gb * GB
     free = total - used
-    return {
-        "name": name,
-        "maintenance": False,
-        "ignore": False,
-        # Memory
-        "memory_total": total,
-        "memory_used": used,
-        "memory_free": free,
-        "memory_used_percent": (used / total) * 100,
-        "memory_assigned": used,
-        "memory_assigned_percent": (used / total) * 100,
-        # CPU (minimal, not the balancing metric here)
-        "cpu_total": 4,
-        "cpu_used": 1,
-        "cpu_free": 3,
-        "cpu_used_percent": 25.0,
-        "cpu_assigned": 1,
-        "cpu_assigned_percent": 25.0,
-        # Disk (minimal)
-        "disk_total": 100 * GB,
-        "disk_used": 10 * GB,
-        "disk_free": 90 * GB,
-        "disk_used_percent": 10.0,
-        "disk_assigned": 10 * GB,
-        "disk_assigned_percent": 10.0,
-    }
+    used_pct = (used / total) * 100
+    free_pct = (free / total) * 100
+    assigned_pct = used_pct
+    return ProxLbData.Node.Metric(
+        total=total,
+        assigned=int(used),
+        used=used,
+        free=free,
+        assigned_percent=assigned_pct,
+        free_percent=free_pct,
+        used_percent=used_pct,
+        pressure_some_percent=0.0,
+        pressure_full_percent=0.0,
+        pressure_some_spikes_percent=0.0,
+        pressure_full_spikes_percent=0.0,
+        pressure_hot=False,
+    )
 
 
-def _make_guest(name, mem_used_gb, node, guest_id=100):
-    """Helper to build a guest dict."""
-    used = mem_used_gb * GB
-    return {
-        "name": name,
-        "id": guest_id,
-        "type": "vm",
-        "node_current": node,
-        "node_target": node,
-        "node_relationships": [],
-        "node_relationships_strict": False,
-        "processed": False,
-        "ignore": False,
-        "memory_total": used,
-        "memory_used": used,
-        "cpu_total": 1,
-        "cpu_used": 0.1,
-        "disk_total": 1 * GB,
-        "disk_used": 0.5 * GB,
-    }
+def _make_node(name: str, total_gb: float, used_gb: float) -> ProxLbData.Node:
+    mem = _make_node_metric(total_gb, used_gb)
+    cpu = _make_node_metric(4, 1)
+    disk = _make_node_metric(100, 10)
+    return ProxLbData.Node(
+        name=name,
+        pve_version="9",
+        maintenance=False,
+        pressure_hot=False,
+        cpu=cpu,
+        memory=mem,
+        disk=disk,
+    )
 
 
-def _build_proxlb_data(nodes, guests, balanciness=5):
-    """Build a complete proxlb_data dict from nodes and guests."""
-    affinity_groups = {}
-    for guest_name, guest in guests.items():
-        affinity_groups[guest_name] = {
-            "guests": [guest_name],
-            "counter": 1,
-            "memory_used": guest["memory_used"],
-        }
-
-    return {
-        "nodes": nodes,
-        "guests": guests,
-        "groups": {
-            "affinity": affinity_groups,
-            "anti_affinity": {},
-            "maintenance": [],
-        },
-        "meta": {
-            "balancing": {
-                "method": "memory",
-                "mode": "used",
-                "balanciness": balanciness,
-                "balance": True,
-                "balance_next_node": None,
-                "balance_next_guest": "",
-                "balance_types": ["vm", "ct"],
-                "balance_larger_guests_first": False,
-                "enable": True,
-            }
-        },
-    }
+def _make_guest_metric(memory_gb: float) -> ProxLbData.Guest.Metric:
+    used = memory_gb * GB
+    return ProxLbData.Guest.Metric(
+        total=int(used),
+        used=used,
+        pressure_some_percent=0.0,
+        pressure_full_percent=0.0,
+        pressure_some_spikes_percent=0.0,
+        pressure_full_spikes_percent=0.0,
+        pressure_hot=False,
+    )
 
 
-def _build_stacking_scenario():
+def _make_guest(
+    name: str, node: str, memory_gb: float, guest_id: int = 100
+) -> ProxLbData.Guest:
+    mem = _make_guest_metric(memory_gb)
+    cpu = ProxLbData.Guest.Metric(
+        total=1, used=0.1,
+        pressure_some_percent=0.0, pressure_full_percent=0.0,
+        pressure_some_spikes_percent=0.0, pressure_full_spikes_percent=0.0,
+        pressure_hot=False,
+    )
+    disk = ProxLbData.Guest.Metric(
+        total=int(GB), used=0.5 * GB,
+        pressure_some_percent=0.0, pressure_full_percent=0.0,
+        pressure_some_spikes_percent=0.0, pressure_full_spikes_percent=0.0,
+        pressure_hot=False,
+    )
+    return ProxLbData.Guest(
+        name=name,
+        id=guest_id,
+        node_current=node,
+        node_target=node,
+        processed=False,
+        pressure_hot=False,
+        tags=[],
+        pools=[],
+        ha_rules=[],
+        affinity_groups=[name],
+        anti_affinity_groups=[],
+        ignore=False,
+        node_relationships=[],
+        node_relationships_strict=False,
+        type=Config.GuestType.Vm,
+        cpu=cpu,
+        memory=mem,
+        disk=disk,
+    )
+
+
+def _make_affinity_group(
+    guest_name: str, memory_gb: float
+) -> ProxLbData.Groups.Affinity:
+    used = memory_gb * GB
+    return ProxLbData.Groups.Affinity(
+        counter=1,
+        guests=[guest_name],
+        cpu=ProxLbData.Groups.Affinity.Metric(total=1, used=0.1),
+        disk=ProxLbData.Groups.Affinity.Metric(total=int(GB), used=int(0.5 * GB)),
+        memory=ProxLbData.Groups.Affinity.Metric(total=int(used), used=used),
+    )
+
+
+def _build_stacking_scenario() -> ProxLbData:
     """
     Scenario that triggers the stacking bug:
 
@@ -131,15 +146,38 @@ def _build_stacking_scenario():
       Spread: 75 - 10 = 65%, but no node hit 85%.
     """
     nodes = {
-        "node-A": _make_node("node-A", 9.0, 10.0),
-        "node-B": _make_node("node-B", 0.5, 10.0),
-        "node-C": _make_node("node-C", 3.0, 10.0),
+        "node-A": _make_node("node-A", total_gb=10.0, used_gb=9.0),
+        "node-B": _make_node("node-B", total_gb=10.0, used_gb=0.5),
+        "node-C": _make_node("node-C", total_gb=10.0, used_gb=3.0),
     }
     guests = {
-        "g-small": _make_guest("g-small", 3.5, "node-A", 101),
-        "g-large": _make_guest("g-large", 4.5, "node-A", 102),
+        "g-small": _make_guest("g-small", "node-A", memory_gb=3.5, guest_id=101),
+        "g-large": _make_guest("g-large", "node-A", memory_gb=4.5, guest_id=102),
     }
-    return _build_proxlb_data(nodes, guests, balanciness=5)
+    affinity = {
+        "g-small": _make_affinity_group("g-small", memory_gb=3.5),
+        "g-large": _make_affinity_group("g-large", memory_gb=4.5),
+    }
+
+    return ProxLbData(
+        guests=guests,
+        ha_rules={},
+        nodes=nodes,
+        pools={},
+        groups=ProxLbData.Groups(affinity=affinity),
+        meta=ProxLbData.Meta(
+            proxmox_api=Config.ProxmoxAPI(hosts=[], user=""),
+            cluster_non_pve9=False,
+            balancing=ProxLbData.Meta.Balancing(
+                method=BalancingResource.Memory,
+                balanciness=5,
+                enable=True,
+                balance=True,
+                balance_types=[Config.GuestType.Vm],
+                balance_larger_guests_first=False,
+            ),
+        ),
+    )
 
 
 def test_target_node_is_recalculated_between_migrations():
@@ -151,22 +189,15 @@ def test_target_node_is_recalculated_between_migrations():
     proxlb_data = _build_stacking_scenario()
 
     Calculations.get_most_free_node(proxlb_data)
-    assert proxlb_data["meta"]["balancing"]["balance_next_node"] == "node-B"
+    assert proxlb_data.meta.balancing.balance_next_node == "node-B"
 
     Calculations.relocate_guests(proxlb_data)
 
-    targets = {
-        name: g["node_target"]
-        for name, g in proxlb_data["guests"].items()
-    }
+    targets = {name: g.node_target for name, g in proxlb_data.guests.items()}
 
-    # g-small should go to node-B (initially most free at 5%)
     assert targets["g-small"] == "node-B", (
         f"Expected g-small -> node-B, got {targets['g-small']}"
     )
-
-    # After g-small moves, node-B is at 40%, node-C is at 30%.
-    # With the fix, g-large should go to node-C (now most free).
     assert targets["g-large"] == "node-C", (
         f"Expected g-large -> node-C (most free after first migration), "
         f"got {targets['g-large']}"
@@ -182,15 +213,17 @@ def test_no_node_overloaded_beyond_source():
     proxlb_data = _build_stacking_scenario()
 
     max_load_before = max(
-        n["memory_used_percent"] for n in proxlb_data["nodes"].values()
+        n.metric(BalancingResource.Memory).used_percent
+        for n in proxlb_data.nodes.values()
     )
 
     Calculations.get_most_free_node(proxlb_data)
     Calculations.relocate_guests(proxlb_data)
 
-    for name, node in proxlb_data["nodes"].items():
-        assert node["memory_used_percent"] <= max_load_before + 0.1, (
-            f"Node {name} ended up at {node['memory_used_percent']:.1f}%, "
+    for name, node in proxlb_data.nodes.items():
+        assert node.metric(BalancingResource.Memory).used_percent <= max_load_before + 0.1, (
+            f"Node {name} ended up at "
+            f"{node.metric(BalancingResource.Memory).used_percent:.1f}%, "
             f"exceeding the initial max of {max_load_before:.1f}%"
         )
 
@@ -202,18 +235,20 @@ def test_spread_improves_after_relocation():
     """
     proxlb_data = _build_stacking_scenario()
 
-    mem_percents_before = [
-        n["memory_used_percent"] for n in proxlb_data["nodes"].values()
+    percents_before = [
+        n.metric(BalancingResource.Memory).used_percent
+        for n in proxlb_data.nodes.values()
     ]
-    spread_before = max(mem_percents_before) - min(mem_percents_before)
+    spread_before = max(percents_before) - min(percents_before)
 
     Calculations.get_most_free_node(proxlb_data)
     Calculations.relocate_guests(proxlb_data)
 
-    mem_percents_after = [
-        n["memory_used_percent"] for n in proxlb_data["nodes"].values()
+    percents_after = [
+        n.metric(BalancingResource.Memory).used_percent
+        for n in proxlb_data.nodes.values()
     ]
-    spread_after = max(mem_percents_after) - min(mem_percents_after)
+    spread_after = max(percents_after) - min(percents_after)
 
     assert spread_after < spread_before, (
         f"Spread should improve: before={spread_before:.1f}pp, "
@@ -235,40 +270,62 @@ def test_original_report_scenario():
     """
     mem_total = 15.6
     nodes = {
-        "node-158": _make_node("node-158", 8.9, mem_total),
-        "node-166": _make_node("node-166", 1.7, mem_total),
-        "node-172": _make_node("node-172", 11.5, mem_total),
+        "node-158": _make_node("node-158", total_gb=mem_total, used_gb=8.9),
+        "node-166": _make_node("node-166", total_gb=mem_total, used_gb=1.7),
+        "node-172": _make_node("node-172", total_gb=mem_total, used_gb=11.5),
     }
     guests = {
-        "itc-ballast-03": _make_guest("itc-ballast-03", 7.60, "node-172", 101),
-        "itc-ballast-02": _make_guest("itc-ballast-02", 1.99, "node-172", 102),
-        "itc-grml": _make_guest("itc-grml", 0.03, "node-172", 103),
+        "itc-ballast-03": _make_guest("itc-ballast-03", "node-172", 7.60, 101),
+        "itc-ballast-02": _make_guest("itc-ballast-02", "node-172", 1.99, 102),
+        "itc-grml": _make_guest("itc-grml", "node-172", 0.03, 103),
     }
-    proxlb_data = _build_proxlb_data(nodes, guests, balanciness=50)
-
-    spread_before = max(
-        n["memory_used_percent"] for n in proxlb_data["nodes"].values()
-    ) - min(
-        n["memory_used_percent"] for n in proxlb_data["nodes"].values()
+    affinity = {
+        name: _make_affinity_group(name, g.memory.total / GB)
+        for name, g in guests.items()
+    }
+    proxlb_data = ProxLbData(
+        guests=guests,
+        ha_rules={},
+        nodes=nodes,
+        pools={},
+        groups=ProxLbData.Groups(affinity=affinity),
+        meta=ProxLbData.Meta(
+            proxmox_api=Config.ProxmoxAPI(hosts=[], user=""),
+            cluster_non_pve9=False,
+            balancing=ProxLbData.Meta.Balancing(
+                method=BalancingResource.Memory,
+                balanciness=50,
+                enable=True,
+                balance=True,
+                balance_types=[Config.GuestType.Vm],
+                balance_larger_guests_first=False,
+            ),
+        ),
     )
+
+    percents_before = [
+        n.metric(BalancingResource.Memory).used_percent
+        for n in proxlb_data.nodes.values()
+    ]
+    spread_before = max(percents_before) - min(percents_before)
 
     Calculations.get_most_free_node(proxlb_data)
     Calculations.relocate_guests(proxlb_data)
 
-    spread_after = max(
-        n["memory_used_percent"] for n in proxlb_data["nodes"].values()
-    ) - min(
-        n["memory_used_percent"] for n in proxlb_data["nodes"].values()
-    )
+    percents_after = [
+        n.metric(BalancingResource.Memory).used_percent
+        for n in proxlb_data.nodes.values()
+    ]
+    spread_after = max(percents_after) - min(percents_after)
 
     assert spread_after < spread_before, (
         f"Spread should improve: before={spread_before:.1f}pp, "
         f"after={spread_after:.1f}pp"
     )
 
-    max_before = max(
-        n["memory_used_percent"] for n in proxlb_data["nodes"].values()
-    )
-    assert max_before <= 73.8, (
-        f"No node should exceed original max load, got {max_before:.1f}%"
+    max_after = max(percents_after)
+    initial_max = max(percents_before)
+    assert max_after <= initial_max + 0.1, (
+        f"No node should exceed original max load, "
+        f"got {max_after:.1f}% vs initial max {initial_max:.1f}%"
     )
