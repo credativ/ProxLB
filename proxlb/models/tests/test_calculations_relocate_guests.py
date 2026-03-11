@@ -15,7 +15,7 @@ __copyright__ = "Copyright (C) 2026 Alexander Wirt for credativ GmbH"
 __license__ = "GPL-3.0"
 
 
-from models.calculations import Calculations
+from proxlb.models.calculations import Calculations
 
 
 GB = 1024 ** 3
