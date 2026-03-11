@@ -1,0 +1,4 @@
+[tool.mypy]
+strict = true
+python_version = "3.12"
+mypy_path = ["../proxlb-solver"]

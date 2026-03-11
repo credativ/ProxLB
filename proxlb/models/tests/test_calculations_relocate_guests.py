@@ -180,7 +180,7 @@ def _build_stacking_scenario() -> ProxLbData:
     )
 
 
-def test_target_node_is_recalculated_between_migrations():
+def test_target_node_is_recalculated_between_migrations() -> None:
     """
     After moving g-small to node-B, node-B is no longer the most free.
     The fix ensures get_most_free_node is called again, so g-large
@@ -204,7 +204,7 @@ def test_target_node_is_recalculated_between_migrations():
     )
 
 
-def test_no_node_overloaded_beyond_source():
+def test_no_node_overloaded_beyond_source() -> None:
     """
     Without the fix, stacking all guests on node-B would push it to 85%,
     nearly as bad as the original source (90%). The fix must prevent any
@@ -228,7 +228,7 @@ def test_no_node_overloaded_beyond_source():
         )
 
 
-def test_spread_improves_after_relocation():
+def test_spread_improves_after_relocation() -> None:
     """
     The projected spread after relocation must be strictly better
     than the initial spread.
@@ -256,7 +256,7 @@ def test_spread_improves_after_relocation():
     )
 
 
-def test_original_report_scenario():
+def test_original_report_scenario() -> None:
     """
     Reproduces the cluster state from the original bug report:
 
