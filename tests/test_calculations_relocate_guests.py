@@ -1,5 +1,13 @@
 """
 Unit tests for relocate_guests in class Calculations.
+
+Reproduces the real-world scenario where all guests from the most loaded
+node were moved to the same (least loaded) target, overloading it instead
+of distributing guests across available nodes.
+
+Before the fix, get_most_free_node was only called once globally. After the
+fix it is recalculated before each guest migration so that updated node
+statistics are taken into account.
 """
 
 __author__ = "Alexander Wirt <formorer>"
@@ -169,6 +177,30 @@ def _build_stacking_scenario() -> ProxLbData:
                 balance_larger_guests_first=False,
             ),
         ),
+    )
+
+
+def test_target_node_is_recalculated_between_migrations() -> None:
+    """
+    After moving g-small to node-B, node-B is no longer the most free.
+    The fix ensures get_most_free_node is called again, so g-large
+    goes to node-C instead of also stacking on node-B.
+    """
+    proxlb_data = _build_stacking_scenario()
+
+    Calculations.get_most_free_node(proxlb_data)
+    assert proxlb_data.meta.balancing.balance_next_node == "node-B"
+
+    Calculations.relocate_guests(proxlb_data)
+
+    targets = {name: g.node_target for name, g in proxlb_data.guests.items()}
+
+    assert targets["g-small"] == "node-B", (
+        f"Expected g-small -> node-B, got {targets['g-small']}"
+    )
+    assert targets["g-large"] == "node-C", (
+        f"Expected g-large -> node-C (most free after first migration), "
+        f"got {targets['g-large']}"
     )
 
 
