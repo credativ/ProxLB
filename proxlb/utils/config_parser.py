@@ -153,10 +153,23 @@ class Config(BaseModel):
         log_level: "Config.Service.LogLevel" = LogLevel.INFO
         schedule: Schedule = Schedule()
 
+    class Solver(BaseModel):
+        class Mode(StrEnum):
+            Active = "active"
+            Shadow = "shadow"
+
+        active_step_retries: int = 3
+        enable: bool = False
+        log_dir: str = "/var/log/proxlb/solver"
+        mode: Mode = Mode.Shadow
+        timeout_seconds: float = 30.0
+        use_reservations: bool = True
+
     proxmox_api: ProxmoxAPI
     proxmox_cluster: ProxmoxCluster = ProxmoxCluster()
     balancing: Balancing = Field(default_factory=Balancing)
     service: Service = Field(default_factory=Service)
+    solver: Solver = Field(default_factory=Solver)
 
 
 class ConfigParser:

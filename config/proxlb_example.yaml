@@ -88,3 +88,14 @@ service:
     time: 1
     format: hours
   log_level: INFO
+
+# Optional: CP-SAT solver integration (requires proxlb-solver package)
+# Install with: pip install proxlb-solver
+# See docs/04_solver.md for full documentation.
+# solver:
+#   enable: False                   # Set to True to activate the solver
+#   mode: shadow                    # 'shadow' (observe only) | 'active' (solver drives migrations)
+#   log_dir: /var/log/proxlb/solver # Directory for JSONL run logs and HTML reports
+#   timeout_seconds: 30             # CP-SAT wall-clock time limit per solve (seconds)
+#   use_reservations: True          # Apply node_resource_reserve entries as hard constraints
+#   active_step_retries: 3          # Max re-solve attempts on migration failure (active mode only)
