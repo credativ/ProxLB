@@ -13,6 +13,7 @@ setup(
     packages=["proxlb", "proxlb.utils", "proxlb.models"],
     install_requires=[
         "packaging",
+        "proxlb-solver",
         "proxmoxer",
         "pydantic",
         "pyyaml",
