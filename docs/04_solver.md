@@ -93,23 +93,7 @@ concurrently.
 | `ortools` | ≥ 9.x | Included as a transitive dependency |
 | Python | ≥ 3.11 | Same as ProxLB 2.0 |
 
-The solver package is separate from the main ProxLB package and is **not** installed by default.
-ProxLB gracefully falls back to its greedy algorithm when the package is absent.
-
-
-## Installation
-
-Install ProxLB together with the solver in one step:
-
-```bash
-pip install "proxlb[solver]"
-```
-
-Or add the solver to an existing ProxLB installation:
-
-```bash
-pip install proxlb-solver
-```
+The solver package is separate from the main ProxLB package and is installed as a dependency.
 
 
 ## Configuration
@@ -130,7 +114,7 @@ solver:
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `enable` | bool | `False` | Enable the solver integration. When `False`, ProxLB behaves as if the package is not installed. |
+| `enable` | bool | `False` | Enable the solver integration. When `False`, ProxLB will neither use `shadow` mode nor `active` mode. |
 | `mode` | string | `shadow` | `shadow` — observe only; `active` — solver drives migrations. |
 | `log_dir` | string | `/var/log/proxlb/solver` | Directory for JSONL run logs and HTML reports. Created automatically if absent. The user running ProxLB must have write access (see [Log directory permissions](#logging-and-reports)). |
 | `timeout_seconds` | float | `30.0` | Wall-clock time limit given to the CP-SAT solver per solve (initial solve and each re-solve in active mode). |
