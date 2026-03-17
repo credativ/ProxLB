@@ -240,13 +240,7 @@ ProxLB optionally integrates a CP-SAT-based placement solver (Google OR-Tools) t
 
 Both modes produce a structured JSONL log and an HTML report showing the solver plan, node load before/after, and (in active mode) the execution result of every migration.
 
-Install the solver package:
-
-```bash
-pip install proxlb-solver
-```
-
-Then add a `solver:` block to your `proxlb.yaml`:
+Add a `solver:` block to your `proxlb.yaml`:
 
 ```yaml
 solver:
