@@ -57,7 +57,7 @@ class Balancing:
             proxmox_api (object): The Proxmox API client instance used to interact with the Proxmox cluster.
             proxlb_data (dict): A dictionary containing data related to the ProxLB load balancing configuration.
         """
-        def chunk_dict(data: Dict[str, ProxLbData.Guest], size: int) -> Generator[Dict[str, ProxLbData.Guest]]:
+        def chunk_dict(data: Dict[str, ProxLbData.Guest], size: int) -> Generator[Dict[str, ProxLbData.Guest], None, None]:
             """
             Splits a dictionary into chunks of a specified size.
             Args:
