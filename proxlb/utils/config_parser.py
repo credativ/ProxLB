@@ -89,12 +89,14 @@ class Config(BaseModel):
         balance_larger_guests_first: bool = False
         balance_types: list["Config.GuestType"] = []
         balanciness: int = 10
+        cpu_overcommit: float = 2.0
         cpu_threshold: Optional[int] = None
         enable: bool = False
         enforce_affinity: bool = False
         enforce_pinning: bool = False
         live: bool = True
         max_job_validation: int = 1800
+        max_node_inflow: Optional[int] = None
         memory_threshold: Optional[int] = None
         disk_threshold: Optional[int] = None
         method: "Config.Balancing.Resource" = Resource.Memory
