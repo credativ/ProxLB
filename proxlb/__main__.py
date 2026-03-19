@@ -14,15 +14,10 @@ __license__ = "GPL-3.0"
 
 import logging
 import signal
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from proxlb_solver.models import MigrationPlan  # noqa: F401
+from proxlb_solver import shadow as _solver_shadow
+from proxlb_solver.models import MigrationPlan
 
-try:
-    from proxlb_solver import shadow as _solver_shadow
-except ImportError:
-    _solver_shadow = None  # type: ignore[assignment]
 from proxlb.utils.logger import SystemdLogger
 from proxlb.utils.cli_parser import CliParser
 from proxlb.utils.config_parser import ConfigParser
@@ -121,7 +116,7 @@ while True:
         _solver_cfg = proxlb_config.solver
         _run_file: str | None = None
         _solver_plan: MigrationPlan | None = None
-        if _solver_cfg.enable and _solver_shadow is not None:
+        if _solver_cfg.enable:
             _run_file, _solver_plan = _solver_shadow.run_shadow(
                 proxlb_data, _solver_cfg
             )
@@ -131,8 +126,7 @@ while True:
         # Perform balancing actions via Proxmox API
         if proxlb_data.meta.balancing.enable:
             if not cli_args.dry_run:
-                if (_solver_shadow is not None
-                        and _solver_cfg.mode == "active"
+                if (_solver_cfg.mode == "active"
                         and _solver_plan is not None):
                     try:
                         _solver_shadow.execute_solver_plan(
@@ -148,7 +142,7 @@ while True:
                     Balancing(proxmox_api, proxlb_data)
 
         # Record whether balancing was executed or skipped (dry-run).
-        if _run_file is not None and _solver_shadow is not None:
+        if _run_file is not None:
             try:
                 _solver_shadow.finalize_run(_run_file, dry_run=cli_args.dry_run)
             except Exception as exc:
