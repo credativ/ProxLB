@@ -27,6 +27,8 @@ balancing:
   live: True
   with_local_disks: True
   with_conntrack_state: True
+  cpu_overcommit: 2.0                 # Maximum ratio of vCPUs to physical cores per node
+  max_node_inflow: 1                  # Maximum number of VMs that may be migrated onto any single node per run
   balance_types: ['vm', 'ct']         # 'vm' | 'ct'
   max_job_validation: 1800            # Maximum time (in seconds) a job validation may take
   memory_threshold: 75                # Optional: Maximum threshold (in percent) to trigger balancing actions
