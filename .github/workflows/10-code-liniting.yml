@@ -18,12 +18,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install additional dependencies for code linting
         run: |
-          python3 -m venv .venv
-          ./.venv/bin/pip3 install --upgrade pip
-          ./.venv/bin/pip3 install .
-          ./.venv/bin/pip3 install mypy pyright pytest pytest-mypy pytest-pycodestyle proxmoxer-stubs pytest-flake8 types-PyYAML types-requests types-setuptools
+          pip3 install poetry
       - name: Run code linting on ProxLB Python code
         run: |
-          source ./.venv/bin/activate
-          py.test --mypy --pycodestyle --flake8 --cache-clear -vv
-          pyright --verbose
+          make test
