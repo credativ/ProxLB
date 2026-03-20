@@ -1,0 +1,41 @@
+[project]
+name = "proxlb"
+
+[tool.poetry]
+name = "proxlb"
+version = "2.0.0dev1"
+description = "An advanced resource scheduler and load balancer for Proxmox clusters."
+authors = ["Florian Paul Azim Hoberg <gyptazy@gyptazy.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.11"
+packaging = "*"
+proxlb-solver = "*"
+proxmoxer = "*"
+pydantic = "*"
+pyyaml = "*"
+requests = "*"
+urllib3 = "*"
+
+[tool.poetry.group.dev.dependencies]
+mypy = "*"
+proxmoxer-stubs = "*"
+pyright = "*"
+pytest = "*"
+pytest-flake8 = "*"
+pytest-mypy = "*"
+pytest-pycodestyle = "*"
+types-pyyaml = "*"
+types-requests = "*"
+
+[project.urls]
+Homepage = "https://github.com/credativ/ProxLB/"
+Issues = "https://github.com/credativ/ProxLB/issues"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+strict = true

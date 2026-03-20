@@ -1,7 +1,0 @@
-packaging
-proxlb-solver
-proxmoxer
-pydantic
-requests
-urllib3
-PyYAML

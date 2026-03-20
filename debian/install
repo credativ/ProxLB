@@ -1,2 +1,2 @@
-proxlb /usr/lib/python3/dist-packages/
+config/proxlb_example.yaml /etc/proxlb/
 service/proxlb.service /lib/systemd/system/
