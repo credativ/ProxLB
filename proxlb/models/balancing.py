@@ -264,7 +264,7 @@ class Balancing:
         return job_id
 
     @staticmethod
-    def get_rebalancing_job_status(proxmox_api: any, job: Dict[str, Any]) -> bool:
+    def get_rebalancing_job_status(proxmox_api: any, job: Dict[str, Any]) -> Balancing.BalancingStatus:
         """
         Monitors the status of a rebalancing job on a Proxmox node until it completes or a timeout is reached.
 
