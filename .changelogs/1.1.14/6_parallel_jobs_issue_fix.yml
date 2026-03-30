@@ -1,0 +1,7 @@
+changed:
+  - removes old chunk based balancing if running parallel jobs
+  - adds new streaming balancing with parallel job limit
+
+added:
+- Adds tests for streaming balancing with parallel job limit
+- Adds pyproject.toml configuration for test-specific linting rules
