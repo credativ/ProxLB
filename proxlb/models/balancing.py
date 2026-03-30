@@ -114,11 +114,11 @@ class Balancing:
                             else:
                                 logger.debug(
                                     f"Balancing: Balancing for guest {guest_name} will not be performed. "
-                                     "Guest is of type CT which is not included in allowed balancing types.")
+                                    + "Guest is of type CT which is not included in allowed balancing types.")
                         # Just in case we get a new type of guest in the future
                         else:
-                            logger.critical(f"Balancing: Got unexpected guest type: {guest_meta['type']}. "+
-                                            f"Cannot proceed guest: {guest_meta['name']}.")
+                            logger.critical(f"Balancing: Got unexpected guest type: {guest_meta['type']}. "
+                                            + f"Cannot proceed guest: {guest_meta['name']}.")
 
                         if job_id:
                             jobs_to_wait.append({
@@ -131,8 +131,8 @@ class Balancing:
                     else:
                         logger.debug(f"Balancing: Guest {guest_name} is ignored and will not be rebalanced.")
                 else:
-                    logger.debug(f"Balancing: Guest {guest_name} is already on the target node "+
-                                 f"{guest_meta['node_target']} and will not be rebalanced.")
+                    logger.debug(f"Balancing: Guest {guest_name} is already on the target node "
+                                 + f"{guest_meta['node_target']} and will not be rebalanced.")
 
             # Wait for at least one job in the current chunk to complete
             while len(jobs_to_wait) >= parallel_job_limit or (migration_done and len(jobs_to_wait) > 0):
@@ -144,8 +144,8 @@ class Balancing:
                             jobs_to_wait.remove(job)
                             continue
                         elif status == Balancing.BalancingStatus.FAILED:
-                            logger.critical(f"Balancing: Job ID {job['job_id']} (guest: {job['name']}) "+
-                                            "for migration went into an error! Please check manually.")
+                            logger.critical(f"Balancing: Job ID {job['job_id']} (guest: {job['name']}) "
+                                            + "for migration went into an error! Please check manually.")
                             jobs_to_wait.remove(job)
                             error_occurred = True
                             continue
@@ -153,8 +153,8 @@ class Balancing:
                             job['retry_counter'] += 1
 
                         if job['retry_counter'] >= max_retries:
-                            logger.warning(f"Balancing: Job ID {job['job_id']} (guest: {job['name']}) for migration "+
-                                           f"is still running. Retry counter: {job['retry_counter']} exceeded.")
+                            logger.warning(f"Balancing: Job ID {job['job_id']} (guest: {job['name']}) for migration "
+                                           + f"is still running. Retry counter: {job['retry_counter']} exceeded.")
                             jobs_to_wait.remove(job)
                             error_occurred = True
 
@@ -169,8 +169,8 @@ class Balancing:
             # to process
 
         if error_occurred:
-            logger.warning("Balancing: Some migrations did not complete successfully. "+
-                           "Please check the logs and Proxmox cluster manually.")
+            logger.warning("Balancing: Some migrations did not complete successfully. "
+                           + "Please check the logs and Proxmox cluster manually.")
             logger.debug("Finished: get_rebalancing_job_status.")
             return False
 
@@ -214,14 +214,14 @@ class Balancing:
             migration_options['with-conntrack-state'] = 1
 
         try:
-            logger.info(f"Balancing: Starting to migrate VM guest {guest_name} "+
-                        f"from {guest_node_current} to {guest_node_target}.")
+            logger.info(f"Balancing: Starting to migrate VM guest {guest_name} "
+                        + f"from {guest_node_current} to {guest_node_target}.")
             job_id = proxmox_api.nodes(guest_node_current).qemu(guest_id).migrate().post(**migration_options)
         except proxmoxer.core.ResourceException as proxmox_api_error:
-            logger.critical(f"Balancing: Failed to migrate guest {guest_name} of type VM due to some Proxmox errors. "+
-                            "Please check if resource is locked or similar.")
-            logger.debug(f"Balancing: Failed to migrate guest {guest_name} of type VM due to "+
-                         f"some Proxmox errors: {proxmox_api_error}")
+            logger.critical(f"Balancing: Failed to migrate guest {guest_name} of type VM due to some Proxmox errors. "
+                            + "Please check if resource is locked or similar.")
+            logger.debug(f"Balancing: Failed to migrate guest {guest_name} of type VM due to "
+                         + f"some Proxmox errors: {proxmox_api_error}")
 
         logger.debug("Finished: exec_rebalancing_vm.")
         return job_id
@@ -249,16 +249,16 @@ class Balancing:
         job_id = None
 
         try:
-            logger.info(f"Balancing: Starting to migrate CT guest {guest_name} from {guest_node_current} "+
-                        f"to {guest_node_target}.")
+            logger.info(f"Balancing: Starting to migrate CT guest {guest_name} from {guest_node_current} "
+                        + f"to {guest_node_target}.")
             job_id = proxmox_api.nodes(guest_node_current).lxc(guest_id).migrate().post(
                 target=guest_node_target, restart=1
-                )
+            )
         except proxmoxer.core.ResourceException as proxmox_api_error:
-            logger.critical(f"Balancing: Failed to migrate guest {guest_name} of type CT due to some Proxmox errors. "+
-                            "Please check if resource is locked or similar.")
-            logger.debug(f"Balancing: Failed to migrate guest {guest_name} of type CT due to some Proxmox errors:"+
-                         f" {proxmox_api_error}")
+            logger.critical(f"Balancing: Failed to migrate guest {guest_name} of type CT due to some Proxmox errors. "
+                            + "Please check if resource is locked or similar.")
+            logger.debug(f"Balancing: Failed to migrate guest {guest_name} of type CT due to some Proxmox errors:"
+                         + f" {proxmox_api_error}")
 
         logger.debug("Finished: exec_rebalancing_ct.")
         return job_id
@@ -277,14 +277,13 @@ class Balancing:
             bool: True if the job completed successfully, False otherwise.
         """
         logger.debug("Starting: get_rebalancing_job_status.")
-        task  = proxmox_api.nodes(job['current_node']).tasks(job['job_id']).status().get()
+        task = proxmox_api.nodes(job['current_node']).tasks(job['job_id']).status().get()
         job_id = job['job_id']
-
 
         # Fetch actual migration job status if this got spawned by a HA job
         if task["type"] == "hamigrate":
-            logger.debug(f"Balancing: Job ID {job['job_id']} (guest: {job['name']}) "+
-                         "is a HA migration job. Fetching underlying migration job...")
+            logger.debug(f"Balancing: Job ID {job['job_id']} (guest: {job['name']}) "
+                         + "is a HA migration job. Fetching underlying migration job...")
             time.sleep(1)
             vm_id = int(job["id"])
             qm_migrate_jobs = proxmox_api.nodes(job['current_node']).tasks.get(
@@ -295,8 +294,8 @@ class Balancing:
                 job_id = task["upid"]
                 logger.debug(f'Overwriting job polling for: ID {job_id} (guest: {job["name"]}) by {job}')
         else:
-            logger.debug(f"Balancing: Job ID {job_id} (guest: {job['name']}) is a standard migration job."+
-                         "Proceeding with status check.")
+            logger.debug(f"Balancing: Job ID {job_id} (guest: {job['name']}) is a standard migration job."
+                         + "Proceeding with status check.")
 
         # Watch job id until it finalizes
         # Note: Unsaved jobs are delivered in uppercase from Proxmox API
@@ -312,12 +311,12 @@ class Balancing:
                 logger.debug("Finished: get_rebalancing_job_status.")
                 return Balancing.BalancingStatus.FINISHED
             else:
-                logger.critical(f"Balancing: Job ID {job_id} (guest: {job['name']}) went into an error! "+
-                                "Please check manually.")
+                logger.critical(f"Balancing: Job ID {job_id} (guest: {job['name']}) went into an error! "
+                                + "Please check manually.")
                 logger.debug("Finished: get_rebalancing_job_status.")
                 return Balancing.BalancingStatus.FAILED
 
         raise AssertionError(
-            f"Balancing: Unexpected status for Job ID {job_id} (guest: {job['name']}): " +
-            f"{task.get('status', '')}. Please check manually."
-            )
+            f"Balancing: Unexpected status for Job ID {job_id} (guest: {job['name']}): "
+            + f"{task.get('status', '')}. Please check manually."
+        )

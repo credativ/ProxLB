@@ -50,7 +50,7 @@ def _proxlb_data(guests: dict, parallel: bool = True, parallel_jobs: int = 2) ->
 @patch("models.balancing.time.sleep")
 @patch.object(Balancing, "get_rebalancing_job_status")
 @patch.object(Balancing, "exec_rebalancing_vm")
-def test_no_migration_when_guests_already_on_target(mock_exec_vm, mock_get_status, mock_sleep) ->None:
+def test_no_migration_when_guests_already_on_target(mock_exec_vm, mock_get_status, mock_sleep) -> None:
     """Guests already on the target node must not trigger any migration."""
     proxlb_data = _proxlb_data({
         "vm1": _guest(101, "node1", "node1"),
@@ -83,7 +83,7 @@ def test_no_migration_when_guests_are_ignored(mock_exec_vm, mock_get_status, moc
 @patch("models.balancing.time.sleep")
 @patch.object(Balancing, "get_rebalancing_job_status")
 @patch.object(Balancing, "exec_rebalancing_vm")
-def test_sequential_mode_runs_one_migration_at_a_time(mock_exec_vm, mock_get_status, mock_sleep) ->None:
+def test_sequential_mode_runs_one_migration_at_a_time(mock_exec_vm, mock_get_status, mock_sleep) -> None:
     """With parallel=False only one migration must be in flight at any point in time."""
     proxlb_data = _proxlb_data({
         "vm1": _guest(101, "node1", "node2"),
