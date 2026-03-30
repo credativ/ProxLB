@@ -13,7 +13,8 @@ __license__ = "GPL-3.0"
 import proxmoxer
 import time
 from utils.logger import SystemdLogger
-from typing import Dict, Any, Enum
+from enum import Enum
+from typing import Dict, Any
 
 logger = SystemdLogger()
 
@@ -74,7 +75,7 @@ class Balancing:
 
         jobs_to_wait = []
         max_retries = proxlb_data["meta"]["balancing"].get("max_job_validation", 1800)
-        item_iterator = iter(proxlb_data["guests"])
+        item_iterator = iter(proxlb_data["guests"].items())
         migration_done = False
         error_occurred = False
 
@@ -86,9 +87,8 @@ class Balancing:
                 logger.debug("Finished: no more guests to process.")
                 migration_done = True
             else:
-                logger.debug(f"Balancing: Processing guest {element['name']} for potential rebalancing.")
-                guest_name = element['name']
-                guest_meta = element['meta']
+                guest_name, guest_meta = element
+                logger.debug(f"Balancing: Processing guest {guest_name} for potential rebalancing.")
 
                 # Check if the guest's target is not the same as the current node
                 if guest_meta["node_current"] != guest_meta["node_target"]:
@@ -123,6 +123,7 @@ class Balancing:
                         if job_id:
                             jobs_to_wait.append({
                                 'name': guest_name,
+                                'id': guest_meta["id"],
                                 'current_node': guest_meta["node_current"],
                                 'job_id': job_id,
                                 'retry_counter': 0,
@@ -136,16 +137,18 @@ class Balancing:
             # Wait for at least one job in the current chunk to complete
             while len(jobs_to_wait) >= parallel_job_limit or (migration_done and len(jobs_to_wait) > 0):
 
-                for job in jobs_to_wait:
+                for job in list(jobs_to_wait):
                     if job.get('job_id', False):
-                        status = Balancing.get_rebalancing_job_status(proxmox_api, proxlb_data, job)
+                        status = Balancing.get_rebalancing_job_status(proxmox_api, job)
                         if status == Balancing.BalancingStatus.FINISHED:
                             jobs_to_wait.remove(job)
+                            continue
                         elif status == Balancing.BalancingStatus.FAILED:
                             logger.critical(f"Balancing: Job ID {job['job_id']} (guest: {job['name']}) "+
                                             "for migration went into an error! Please check manually.")
                             jobs_to_wait.remove(job)
                             error_occurred = True
+                            continue
                         elif status == Balancing.BalancingStatus.RUNNING:
                             job['retry_counter'] += 1
 
