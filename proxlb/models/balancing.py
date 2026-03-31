@@ -105,10 +105,10 @@ class Balancing:
 
                 if job_id is not None:
                     jobs_to_wait.append(Balancing.RebalancingJob(
-                        name = guest_name,
-                        id = guest_meta['id'],
-                        current_node = guest_meta['node_current'],
-                        job_id = job_id
+                        name=guest_name,
+                        id=guest_meta['id'],
+                        current_node=guest_meta['node_current'],
+                        job_id=job_id
                     ))
 
             # Wait for at least one job in the current chunk to complete
@@ -185,7 +185,7 @@ class Balancing:
                 # Just in case we get a new type of guest in the future
                 else:
                     logger.critical(f"Balancing: Got unexpected guest type: {guest_meta['type']}. "
-                            + f"Cannot proceed guest: {guest_meta['name']}.")
+                                    + f"Cannot proceed guest: {guest_meta['name']}.")
             else:
                 logger.debug(f"Balancing: Guest {guest_name} is ignored and will not be rebalanced.")
         else:
