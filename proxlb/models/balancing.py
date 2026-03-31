@@ -101,7 +101,7 @@ class Balancing:
                 migration_done = True
             else:
                 guest_name, guest_meta = element
-                job_id = Balancing.exec_rebalancing(proxmox_api, proxlb_data, guest_name)
+                job_id = Balancing._exec_rebalancing(proxmox_api, proxlb_data, guest_name)
 
                 if job_id is not None:
                     jobs_to_wait.append(Balancing.RebalancingJob(
@@ -115,23 +115,7 @@ class Balancing:
             while len(jobs_to_wait) >= parallel_job_limit or (migration_done and len(jobs_to_wait) > 0):
                 # work on a copy of the list to avoid issues when removing items while iterating
                 for job in list(jobs_to_wait):
-                    status = Balancing.get_rebalancing_job_status(proxmox_api, job)
-                    if status == Balancing.BalancingStatus.FINISHED:
-                        jobs_to_wait.remove(job)
-                        continue
-                    elif status == Balancing.BalancingStatus.FAILED:
-                        logger.critical(f"Balancing: Job ID {job.job_id} (guest: {job.name}) "
-                                        + "for migration went into an error! Please check manually.")
-                        jobs_to_wait.remove(job)
-                        error_occurred = True
-                        continue
-                    elif status == Balancing.BalancingStatus.RUNNING:
-                        job.retry_counter += 1
-
-                    if job.retry_counter >= max_retries:
-                        logger.warning(f"Balancing: Job ID {job.job_id} (guest: {job.name}) for migration "
-                                       + f"is still running. Retry counter: {job.retry_counter} exceeded.")
-                        jobs_to_wait.remove(job)
+                    if Balancing._handle_job_status(proxmox_api, job, jobs_to_wait, max_retries):
                         error_occurred = True
 
                 if len(jobs_to_wait) >= parallel_job_limit or (migration_done and len(jobs_to_wait) > 0):
@@ -154,7 +138,7 @@ class Balancing:
         return True
 
     @staticmethod
-    def exec_rebalancing(proxmox_api: any, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
+    def _exec_rebalancing(proxmox_api: any, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
         """
         Executes the rebalancing of a guest to a new node within the cluster based on the guest
         type. This function initiates the migration of a specified guest to a target node as
@@ -184,7 +168,7 @@ class Balancing:
                 if guest_meta["type"] == "vm":
                     if 'vm' in proxlb_data["meta"]["balancing"].get("balance_types", []):
                         logger.debug(f"Balancing: Balancing for guest {guest_name} of type VM started.")
-                        job_id = Balancing.exec_rebalancing_vm(proxmox_api, proxlb_data, guest_name)
+                        job_id = Balancing._exec_rebalancing_vm(proxmox_api, proxlb_data, guest_name)
                     else:
                         logger.debug(
                             f"Balancing: Balancing for guest {guest_name} will not be performed. "
@@ -193,7 +177,7 @@ class Balancing:
                 elif guest_meta["type"] == "ct":
                     if 'ct' in proxlb_data["meta"]["balancing"].get("balance_types", []):
                         logger.debug(f"Balancing: Balancing for guest {guest_name} of type CT started.")
-                        job_id = Balancing.exec_rebalancing_ct(proxmox_api, proxlb_data, guest_name)
+                        job_id = Balancing._exec_rebalancing_ct(proxmox_api, proxlb_data, guest_name)
                     else:
                         logger.debug(
                             f"Balancing: Balancing for guest {guest_name} will not be performed. "
@@ -212,7 +196,7 @@ class Balancing:
         return job_id
 
     @staticmethod
-    def exec_rebalancing_vm(proxmox_api: any, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
+    def _exec_rebalancing_vm(proxmox_api: any, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
         """
         Executes the rebalancing of a virtual machine (VM) to a new node within the cluster.
         This function initiates the migration of a specified VM to a target node as part of the
@@ -261,7 +245,7 @@ class Balancing:
         return job_id
 
     @staticmethod
-    def exec_rebalancing_ct(proxmox_api: any, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
+    def _exec_rebalancing_ct(proxmox_api: any, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
         """
         Executes the rebalancing of a container (CT) to a new node within the cluster.
         This function initiates the migration of a specified CT to a target node as part of the
@@ -298,7 +282,39 @@ class Balancing:
         return job_id
 
     @staticmethod
-    def get_rebalancing_job_status(proxmox_api: any, job: RebalancingJob) -> BalancingStatus:
+    def _handle_job_status(proxmox_api: any, job: RebalancingJob, jobs_to_wait: list, max_retries: int) -> bool:
+        """
+        Checks the current status of a single in-flight migration job and updates jobs_to_wait.
+
+        Args:
+            proxmox_api (object): The Proxmox API client instance.
+            job (RebalancingJob): The job whose status to check.
+            jobs_to_wait (list): The list of currently in-flight jobs (mutated in place).
+            max_retries (int): Maximum number of status checks before the job is considered timed out.
+
+        Returns:
+            bool: True if the job entered an error state (FAILED or timed out), False otherwise.
+        """
+        status = Balancing._get_rebalancing_job_status(proxmox_api, job)
+        if status == Balancing.BalancingStatus.FINISHED:
+            jobs_to_wait.remove(job)
+            return False
+        if status == Balancing.BalancingStatus.FAILED:
+            logger.critical(f"Balancing: Job ID {job.job_id} (guest: {job.name}) "
+                            + "for migration went into an error! Please check manually.")
+            jobs_to_wait.remove(job)
+            return True
+        # RUNNING
+        job.retry_counter += 1
+        if job.retry_counter >= max_retries:
+            logger.warning(f"Balancing: Job ID {job.job_id} (guest: {job.name}) for migration "
+                           + f"is still running. Retry counter: {job.retry_counter} exceeded.")
+            jobs_to_wait.remove(job)
+            return True
+        return False
+
+    @staticmethod
+    def _get_rebalancing_job_status(proxmox_api: any, job: RebalancingJob) -> BalancingStatus:
         """
         Monitors the status of a rebalancing job on a Proxmox node until it completes or a timeout is reached.
 

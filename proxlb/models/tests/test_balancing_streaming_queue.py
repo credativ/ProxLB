@@ -48,8 +48,8 @@ def _proxlb_data(guests: dict, parallel: bool = True, parallel_jobs: int = 2) ->
 
 
 @patch("models.balancing.time.sleep")
-@patch.object(Balancing, "get_rebalancing_job_status")
-@patch.object(Balancing, "exec_rebalancing_vm")
+@patch.object(Balancing, "_get_rebalancing_job_status")
+@patch.object(Balancing, "_exec_rebalancing_vm")
 def test_no_migration_when_guests_already_on_target(mock_exec_vm, mock_get_status, mock_sleep) -> None:
     """Guests already on the target node must not trigger any migration."""
     proxlb_data = _proxlb_data({
@@ -65,8 +65,8 @@ def test_no_migration_when_guests_already_on_target(mock_exec_vm, mock_get_statu
 
 
 @patch("models.balancing.time.sleep")
-@patch.object(Balancing, "get_rebalancing_job_status")
-@patch.object(Balancing, "exec_rebalancing_vm")
+@patch.object(Balancing, "_get_rebalancing_job_status")
+@patch.object(Balancing, "_exec_rebalancing_vm")
 def test_no_migration_when_guests_are_ignored(mock_exec_vm, mock_get_status, mock_sleep) -> None:
     """Ignored guests must not be migrated even when their target node differs."""
     proxlb_data = _proxlb_data({
@@ -81,8 +81,8 @@ def test_no_migration_when_guests_are_ignored(mock_exec_vm, mock_get_status, moc
 
 
 @patch("models.balancing.time.sleep")
-@patch.object(Balancing, "get_rebalancing_job_status")
-@patch.object(Balancing, "exec_rebalancing_vm")
+@patch.object(Balancing, "_get_rebalancing_job_status")
+@patch.object(Balancing, "_exec_rebalancing_vm")
 def test_sequential_mode_runs_one_migration_at_a_time(mock_exec_vm, mock_get_status, mock_sleep) -> None:
     """With parallel=False only one migration must be in flight at any point in time."""
     proxlb_data = _proxlb_data({
@@ -114,8 +114,8 @@ def test_sequential_mode_runs_one_migration_at_a_time(mock_exec_vm, mock_get_sta
 
 
 @patch("models.balancing.time.sleep")
-@patch.object(Balancing, "get_rebalancing_job_status")
-@patch.object(Balancing, "exec_rebalancing_vm")
+@patch.object(Balancing, "_get_rebalancing_job_status")
+@patch.object(Balancing, "_exec_rebalancing_vm")
 def test_parallel_streaming_submits_next_as_soon_as_slot_frees(mock_exec_vm, mock_get_status, mock_sleep) -> None:
     """
     Core streaming guarantee: with parallel_job_limit=2 and 3 guests, the 3rd
@@ -173,8 +173,8 @@ def test_parallel_streaming_submits_next_as_soon_as_slot_frees(mock_exec_vm, moc
 
 
 @patch("models.balancing.time.sleep")
-@patch.object(Balancing, "get_rebalancing_job_status")
-@patch.object(Balancing, "exec_rebalancing_vm")
+@patch.object(Balancing, "_get_rebalancing_job_status")
+@patch.object(Balancing, "_exec_rebalancing_vm")
 def test_parallel_concurrency_never_exceeds_limit(mock_exec_vm, mock_get_status, mock_sleep) -> None:
     """The number of in-flight migrations must never exceed parallel_job_limit."""
     limit = 3
@@ -210,8 +210,8 @@ def test_parallel_concurrency_never_exceeds_limit(mock_exec_vm, mock_get_status,
 
 
 @patch("models.balancing.time.sleep")
-@patch.object(Balancing, "get_rebalancing_job_status")
-@patch.object(Balancing, "exec_rebalancing_vm")
+@patch.object(Balancing, "_get_rebalancing_job_status")
+@patch.object(Balancing, "_exec_rebalancing_vm")
 def test_failed_migration_returns_false(mock_exec_vm, mock_get_status, mock_sleep) -> None:
     """A FAILED migration status must cause balance() to return False."""
     proxlb_data = _proxlb_data({
