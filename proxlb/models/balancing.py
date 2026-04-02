@@ -196,7 +196,7 @@ class Balancing:
         return job_id
 
     @staticmethod
-    def _exec_rebalancing_vm(proxmox_api: any, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
+    def _exec_rebalancing_vm(proxmox_api: Any, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
         """
         Executes the rebalancing of a virtual machine (VM) to a new node within the cluster.
         This function initiates the migration of a specified VM to a target node as part of the
