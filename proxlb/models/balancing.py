@@ -138,7 +138,7 @@ class Balancing:
         return True
 
     @staticmethod
-    def _exec_rebalancing(proxmox_api: any, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
+    def _exec_rebalancing(proxmox_api: Any, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
         """
         Executes the rebalancing of a guest to a new node within the cluster based on the guest
         type. This function initiates the migration of a specified guest to a target node as
