@@ -40,7 +40,7 @@ class Balancing:
         Executes the rebalancing of a container (CT) to a new node within the cluster. Logs the migration
         process and handles exceptions.
 
-    get_rebalancing_job_status(self, proxmox_api: any, job: Dict[str, Any]) -> bool:
+    get_rebalancing_job_status(self, proxmox_api: Any, job: Dict[str, Any]) -> bool:
         Monitors the status of a rebalancing job on a Proxmox node until it completes or a timeout
         is reached. Returns True if the job completed successfully, False otherwise.
     """
