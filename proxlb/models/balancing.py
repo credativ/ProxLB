@@ -68,7 +68,7 @@ class Balancing:
             return getattr(self, item)
 
     @staticmethod
-    def balance(proxmox_api: any, proxlb_data: Dict[str, Any]) -> bool:
+    def balance(proxmox_api: Any, proxlb_data: Dict[str, Any]) -> bool:
         """
         Initializes the Balancing class with the provided ProxLB data.
 
