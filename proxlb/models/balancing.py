@@ -245,7 +245,7 @@ class Balancing:
         return job_id
 
     @staticmethod
-    def _exec_rebalancing_ct(proxmox_api: any, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
+    def _exec_rebalancing_ct(proxmox_api: Any, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
         """
         Executes the rebalancing of a container (CT) to a new node within the cluster.
         This function initiates the migration of a specified CT to a target node as part of the
