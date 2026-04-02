@@ -282,7 +282,7 @@ class Balancing:
         return job_id
 
     @staticmethod
-    def _handle_job_status(proxmox_api: any, job: RebalancingJob, jobs_to_wait: list, max_retries: int) -> bool:
+    def _handle_job_status(proxmox_api: Any, job: RebalancingJob, jobs_to_wait: list[RebalancingJob], max_retries: int) -> bool:
         """
         Checks the current status of a single in-flight migration job and updates jobs_to_wait.
 
