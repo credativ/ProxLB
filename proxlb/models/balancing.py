@@ -81,6 +81,10 @@ class Balancing:
             logger.debug("Balancing: Parallel balancing is disabled. Running sequentially.")
         else:
             parallel_job_limit = proxlb_data["meta"]["balancing"].get("parallel_jobs", 5)
+            if parallel_job_limit < 1:
+                logger.warning("Balancing: Invalid parallel_jobs value. Parallel job limit must be at least 1. "
+                               + "Defaulting to 1.")
+                parallel_job_limit = 1
             logger.debug(f"Balancing: Parallel balancing is enabled. Running with {parallel_job_limit} parallel jobs.")
 
         jobs_to_wait: list[Balancing.RebalancingJob] = []
