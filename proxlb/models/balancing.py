@@ -64,9 +64,6 @@ class Balancing:
         job_id: str
         retry_counter: int = 0
 
-        def __getitem__(self, item: str) -> str | int:
-            return getattr(self, item)
-
     @staticmethod
     def balance(proxmox_api: Any, proxlb_data: Dict[str, Any]) -> bool:
         """
