@@ -145,9 +145,9 @@ def test_parallel_streaming_submits_next_as_soon_as_slot_frees(mock_exec_vm, moc
     }
 
     def tracking_status(api, job) -> Balancing.BalancingStatus:
-        result = next(status_sequences[job["job_id"]])
+        result = next(status_sequences[job.job_id])
         if result == Balancing.BalancingStatus.FINISHED:
-            call_log.append(("finish", job["name"]))
+            call_log.append(("finish", job.name))
         return result
 
     mock_exec_vm.side_effect = tracking_exec

@@ -16,6 +16,7 @@ from utils.logger import SystemdLogger
 from pydantic import BaseModel
 from enum import Enum
 from typing import Dict, Any
+from utils.proxmox_api import ProxmoxApi
 
 logger = SystemdLogger()
 
@@ -65,7 +66,7 @@ class Balancing:
         retry_counter: int = 0
 
     @staticmethod
-    def balance(proxmox_api: Any, proxlb_data: Dict[str, Any]) -> bool:
+    def balance(proxmox_api: ProxmoxApi, proxlb_data: Dict[str, Any]) -> bool:
         """
         Initializes the Balancing class with the provided ProxLB data.
 
@@ -74,18 +75,8 @@ class Balancing:
             proxlb_data (dict): A dictionary containing data related to the ProxLB load balancing configuration.
         """
 
-        # Validate if balancing should be performed in parallel or sequentially.
-        # If parallel balancing is enabled, set the number of parallel jobs.
-        if not proxlb_data["meta"]["balancing"].get("parallel", False):
-            parallel_job_limit = 1
-            logger.debug("Balancing: Parallel balancing is disabled. Running sequentially.")
-        else:
-            parallel_job_limit = proxlb_data["meta"]["balancing"].get("parallel_jobs", 5)
-            if parallel_job_limit < 1:
-                logger.warning("Balancing: Invalid parallel_jobs value. Parallel job limit must be at least 1. "
-                               + "Defaulting to 1.")
-                parallel_job_limit = 1
-            logger.debug(f"Balancing: Parallel balancing is enabled. Running with {parallel_job_limit} parallel jobs.")
+        logger.debug("Starting: balance.")
+        parallel_job_limit = Balancing.get_parallel_job_limit(proxlb_data["meta"]["balancing"])
 
         jobs_to_wait: list[Balancing.RebalancingJob] = []
         max_retries = proxlb_data["meta"]["balancing"].get("max_job_validation", 1800)
@@ -139,7 +130,7 @@ class Balancing:
         return True
 
     @staticmethod
-    def _exec_rebalancing(proxmox_api: Any, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
+    def _exec_rebalancing(proxmox_api: ProxmoxApi, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
         """
         Executes the rebalancing of a guest to a new node within the cluster based on the guest
         type. This function initiates the migration of a specified guest to a target node as
@@ -197,7 +188,7 @@ class Balancing:
         return job_id
 
     @staticmethod
-    def _exec_rebalancing_vm(proxmox_api: Any, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
+    def _exec_rebalancing_vm(proxmox_api: ProxmoxApi, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
         """
         Executes the rebalancing of a virtual machine (VM) to a new node within the cluster.
         This function initiates the migration of a specified VM to a target node as part of the
@@ -246,7 +237,7 @@ class Balancing:
         return job_id
 
     @staticmethod
-    def _exec_rebalancing_ct(proxmox_api: Any, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
+    def _exec_rebalancing_ct(proxmox_api: ProxmoxApi, proxlb_data: Dict[str, Any], guest_name: str) -> str | None:
         """
         Executes the rebalancing of a container (CT) to a new node within the cluster.
         This function initiates the migration of a specified CT to a target node as part of the
@@ -283,12 +274,17 @@ class Balancing:
         return job_id
 
     @staticmethod
-    def _handle_job_status(proxmox_api: Any, job: RebalancingJob, jobs_to_wait: list[RebalancingJob], max_retries: int) -> bool:
+    def _handle_job_status(
+            proxmox_api: ProxmoxApi,
+            job: RebalancingJob,
+            jobs_to_wait: list[RebalancingJob],
+            max_retries: int
+    ) -> bool:
         """
         Checks the current status of a single in-flight migration job and updates jobs_to_wait.
 
         Args:
-            proxmox_api (object): The Proxmox API client instance.
+            proxmox_api (ProxmoxApi): The Proxmox API client instance.
             job (RebalancingJob): The job whose status to check.
             jobs_to_wait (list): The list of currently in-flight jobs (mutated in place).
             max_retries (int): Maximum number of status checks before the job is considered timed out.
@@ -315,14 +311,15 @@ class Balancing:
         return False
 
     @staticmethod
-    def _get_rebalancing_job_status(proxmox_api: Any, job: RebalancingJob) -> BalancingStatus:
+    def _get_rebalancing_job_status(proxmox_api: ProxmoxApi, job: RebalancingJob) -> BalancingStatus:
         """
         Monitors the status of a rebalancing job on a Proxmox node until it completes or a timeout is reached.
 
         Args:
-            proxmox_api (object): The Proxmox API client instance.
-            job (RebalancingJob): A RebalancingJob object containing information about the
-                        rebalancing job, including the guest name, current node, job ID, and retry counter.
+            proxmox_api (ProxmoxApi): The Proxmox API client instance.
+            job (RebalancingJob):     A RebalancingJob object containing information about the
+                                      rebalancing job, including the guest name, current node,
+                                      job ID, and retry counter.
 
         Returns:
             BalancingStatus: The status of the rebalancing job.
@@ -349,7 +346,7 @@ class Balancing:
                          + "Proceeding with status check.")
 
         # Watch job id until it finalizes
-        # Note: Unsaved jobs are delivered in uppercase from Proxmox API
+        # Note: Unsaved jobs are delivered in uppercase from Proxmox Api
         # keep it defensive and provide a default value if anything changes in the future
         task_status = task.get("status", "").lower()
         if task_status == "running":
@@ -372,3 +369,25 @@ class Balancing:
             f"Balancing: Unexpected status for Job ID {job_id} (guest: {job.name}): "
             + f"{task.get('status', '')}. Please check manually."
         )
+
+    @staticmethod
+    def get_parallel_job_limit(proxlb_data_meta_balancing: Dict[str, Any]) -> int:
+        """
+        Retrieves the parallel job limit for balancing operations from the ProxLB configuration.
+
+        Returns:
+            int: The maximum number of parallel jobs allowed for balancing operations.
+        """
+        # Validate if balancing should be performed in parallel or sequentially.
+        # If parallel balancing is enabled, set the number of parallel jobs.
+        if not proxlb_data_meta_balancing.get("parallel", False):
+            limit = 1
+            logger.debug("Balancing: Parallel balancing is disabled. Running sequentially.")
+        else:
+            limit = proxlb_data_meta_balancing.get("parallel_jobs", 5)
+            if limit < 1:
+                logger.warning("Balancing: Invalid parallel_jobs value. Parallel job limit must be at least 1. "
+                               + "Defaulting to 1.")
+                limit = 1
+            logger.debug(f"Balancing: Parallel balancing is enabled. Running with {limit} parallel jobs.")
+        return limit
