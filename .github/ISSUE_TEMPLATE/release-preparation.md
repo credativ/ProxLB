@@ -39,6 +39,8 @@ grep -n 'version\|appVersion' helm/proxlb/Chart.yaml
 grep -n 'tag:' helm/proxlb/values.yaml
 ```
 
+(Hint: You can also use the a utility located in misc/01-replace-version.sh)
+
 ## 3. Changelogs
 
 - [ ] Generate `CHANGELOG.md` from fragments using [CFC](https://github.com/gyptazy/changelog-fragments-creator)
@@ -106,6 +108,11 @@ helm template proxlb helm/proxlb/
 
 - [ ] `proxlb --version` shows correct version (reads from `proxlb/utils/version.py`)
 - [ ] Explain mode produces sensible output on a test cluster
+
+## 8. Release Milestones
+- [ ] Close the release milestone of the created image
+- [ ] Create a new release milestone for the next release (https://github.com/credativ/ProxLB/milestones)
+- [ ] Assign left-over issues to new milestones
 
 ## Known Pitfalls
 
