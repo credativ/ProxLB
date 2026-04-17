@@ -1,4 +1,80 @@
 #!/usr/bin/make -f
-%:
-	dh $@ --with python3 --buildsystem=pybuild
 
+# python-build-standalone — relocatable CPython, no system Python dependency
+PBS_VERSION := 20260310
+PBS_PYTHON  := 3.11.15
+PBS_TARBALL := cpython-$(PBS_PYTHON)+$(PBS_VERSION)-x86_64-unknown-linux-gnu-install_only.tar.gz
+PBS_URL     := https://github.com/indygreg/python-build-standalone/releases/download/$(PBS_VERSION)/$(PBS_TARBALL)
+PBS_CACHE   := /tmp/pbs-proxlb
+
+VENV := debian/proxlb/opt/venvs/proxlb
+
+%:
+	dh $@
+
+override_dh_auto_clean:
+	# nothing — no build artifacts to clean (PBS tarball is cached externally)
+
+override_dh_auto_configure:
+	# nothing — PBS provides Python; no build-system configure needed
+
+override_dh_auto_build:
+	# nothing — packages are installed directly via pip in dh_auto_install
+
+override_dh_auto_test:
+	# nothing — runtime tests are handled by the build-test-vm.sh smoke test
+
+override_dh_auto_install:
+	# --- Fetch PBS Python (cached between builds) ---
+	mkdir -p $(PBS_CACHE)
+	[ -f $(PBS_CACHE)/$(PBS_TARBALL) ] || \
+	    curl -fsSL -o $(PBS_CACHE)/$(PBS_TARBALL) $(PBS_URL)
+	rm -rf $(PBS_CACHE)/python
+	tar -xf $(PBS_CACHE)/$(PBS_TARBALL) -C $(PBS_CACHE)/
+
+	# --- Deploy PBS Python as the embedded interpreter ---
+	mkdir -p $(VENV)
+	cp -a $(PBS_CACHE)/python/. $(VENV)/
+
+	# --- Install Python packages ---
+	$(VENV)/bin/pip install \
+	    --prefer-binary --no-compile --no-cache-dir \
+	    --constraint debian/pip-constraints.txt \
+	    -r requirements.txt .
+
+	# --- Replace pandas (27 MB) with a minimal stub ---
+	# ortools references pd.Series/pd.Index at import time for a type alias;
+	# proxlb never passes pandas objects to ortools so all pandas code paths
+	# are unreachable at runtime.
+	$(VENV)/bin/pip uninstall -y pandas
+	SITE=$$($(VENV)/bin/python3 -c "import site; print(site.getsitepackages()[0])"); \
+	    rm -rf "$$SITE/pandas"; \
+	    cp -r debian/pandas_stub "$$SITE/pandas"
+
+	# --- Strip test dirs, bytecode, and __pycache__ ---
+	find $(VENV) -type d \( -name "test" -o -name "tests" \) \
+	    -exec rm -rf {} + 2>/dev/null || true
+	find $(VENV) -name "*.pyc" -delete 2>/dev/null || true
+	find $(VENV) -type d -name "__pycache__" \
+	    -exec rm -rf {} + 2>/dev/null || true
+	# Remove C headers not needed at runtime
+	rm -rf $(VENV)/include
+
+override_dh_installsystemd:
+	# Do not generate postinst/prerm service management snippets — the service
+	# file is installed via debian/install and enabled manually by the admin.
+	# This keeps install clean in Docker/CI environments without systemd.
+
+override_dh_strip:
+	# PBS Python and PyPI wheels are pre-stripped; dh_strip corrupts ELF
+	# alignment in bundled shared libs (e.g. numpy's libscipy_openblas64_)
+	dh_strip --exclude=opt/venvs/proxlb
+
+override_dh_dwz:
+	# dh_dwz fails on pre-built .so files from PBS/PyPI wheels
+	dh_dwz --exclude=opt/venvs/proxlb
+
+override_dh_shlibdeps:
+	# Skip shlibdeps for the venv — all deps are bundled; system libs are
+	# glibc/libstdc++ which are guaranteed on any target distro
+	dh_shlibdeps --exclude=opt/venvs/proxlb
