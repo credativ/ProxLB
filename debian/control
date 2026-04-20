@@ -9,7 +9,7 @@ Build-Depends: debhelper-compat (= 13),
 
 Package: proxlb
 Architecture: any
-Depends: ${misc:Depends}, ${shlibs:Depends}
+Depends: ${misc:Depends}
 Description: An advanced resource scheduler and load balancer for Proxmox clusters
  ProxLB balances VM and container workloads across Proxmox cluster nodes,
  respecting affinity/anti-affinity rules, maintenance modes, and resource
