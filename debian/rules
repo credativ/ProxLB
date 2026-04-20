@@ -10,7 +10,7 @@ PBS_CACHE   := /tmp/pbs-proxlb
 VENV := debian/proxlb/opt/venvs/proxlb
 
 %:
-	dh $@
+	dh $@ --buildsystem pybuild
 
 override_dh_auto_clean:
 	# nothing — no build artifacts to clean (PBS tarball is cached externally)
@@ -22,7 +22,6 @@ override_dh_auto_build:
 	# nothing — packages are installed directly via pip in dh_auto_install
 
 override_dh_auto_test:
-	# nothing — runtime tests are handled by the build-test-vm.sh smoke test
 
 override_dh_auto_install:
 	# --- Fetch PBS Python (cached between builds) ---
