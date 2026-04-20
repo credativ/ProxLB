@@ -50,6 +50,8 @@ override_dh_auto_install:
 	# Remove C headers not needed at runtime
 	rm -rf $(VENV)/include
 
+	dh_installsysusers
+
 override_dh_installsystemd:
 	# Do not generate postinst/prerm service management snippets — the service
 	# file is installed via debian/install and enabled manually by the admin.

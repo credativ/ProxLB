@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove)
+        find /opt/venvs/proxlb -type f -name '*.pyc' -delete
+        find /opt/venvs/proxlb -type d -name __pycache__ -delete
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0
