@@ -96,5 +96,5 @@ jobs:
               apt-get update
               apt-get install -y python3 systemd
               apt-get install -y ./proxlb*.deb
-              python3 -c 'import proxlb; print(\"OK: Debian package successfully installed on ${{ matrix.debian_version }}.\")'
+              /opt/venvs/proxlb/bin/python3 -c 'import proxlb; print(\"OK: Debian package successfully installed on ${{ matrix.debian_version }}.\")'
             "
