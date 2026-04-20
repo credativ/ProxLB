@@ -24,11 +24,6 @@ override_dh_virtualenv:
 		--extra-pip-arg=--no-cache-dir \
 		--extra-pip-arg=--constraint \
 		--extra-pip-arg=debian/pip-constraints.txt
-	# Replace pandas with minimal stub (same rationale as PBS build)
-	SITE=$$(debian/proxlb/opt/venvs/proxlb/bin/python3 -c "import site; print(site.getsitepackages()[0])"); \
-	    debian/proxlb/opt/venvs/proxlb/bin/pip uninstall -y pandas; \
-	    rm -rf "$$SITE/pandas"; \
-	    cp -r debian/pandas_stub "$$SITE/pandas"
 
 	find debian/proxlb/opt/venvs/proxlb -type d \( -name "test" -o -name "tests" \) \
 		-exec rm -rf {} + 2>/dev/null || true

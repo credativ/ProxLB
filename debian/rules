@@ -42,15 +42,6 @@ override_dh_auto_install:
 	    --constraint debian/pip-constraints.txt \
 	    -r requirements.txt .
 
-	# --- Replace pandas (27 MB) with a minimal stub ---
-	# ortools references pd.Series/pd.Index at import time for a type alias;
-	# proxlb never passes pandas objects to ortools so all pandas code paths
-	# are unreachable at runtime.
-	$(VENV)/bin/pip uninstall -y pandas
-	SITE=$$($(VENV)/bin/python3 -c "import site; print(site.getsitepackages()[0])"); \
-	    rm -rf "$$SITE/pandas"; \
-	    cp -r debian/pandas_stub "$$SITE/pandas"
-
 	# --- Strip test dirs, bytecode, and __pycache__ ---
 	find $(VENV) -type d \( -name "test" -o -name "tests" \) \
 	    -exec rm -rf {} + 2>/dev/null || true
