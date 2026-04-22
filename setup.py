@@ -13,10 +13,12 @@ setup(
     packages=["proxlb", "proxlb.utils", "proxlb.models"],
     install_requires=[
         "packaging",
+        "proxlb-solver",
         "proxmoxer",
+        "pydantic",
         "pyyaml",
         "requests",
         "urllib3",
     ],
-        data_files=[('/etc/systemd/system', ['service/proxlb.service']), ('/etc/proxlb/', ['config/proxlb_example.yaml'])],
+    data_files=[('/etc/systemd/system', ['service/proxlb.service']), ('/etc/proxlb/', ['config/proxlb_example.yaml'])],
 )
