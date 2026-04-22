@@ -1,0 +1,4 @@
+# numpy 2.x requires X86_V2 (SSE4.2) CPU baseline which is not guaranteed on
+# all deployment targets (e.g. KVM VMs with conservative CPU models).
+# numpy 1.x has no such requirement and is fully compatible with ortools CP-SAT.
+numpy<2.0

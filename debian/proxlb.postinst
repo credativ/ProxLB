@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure|abort-upgrade|abort-deconfigure|abort-remove)
+        if command -v systemctl >/dev/null 2>&1; then
+            systemctl daemon-reload || true
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0
