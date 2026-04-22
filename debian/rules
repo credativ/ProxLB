@@ -41,6 +41,19 @@ override_dh_auto_install:
 	    --constraint debian/pip-constraints.txt \
 	    -r requirements.txt .
 
+	# --- Rewrite shebangs: staging path → runtime install path ---
+	# pip writes the invoking interpreter's absolute path into console_scripts,
+	# which during dh_auto_install is $(CURDIR)/$(VENV)/bin/python3.11, not the
+	# post-install /opt/venvs/proxlb/bin/python3. Fix every script in bin/.
+	for f in $(VENV)/bin/*; do \
+		[ -f "$$f" ] || continue; \
+		LC_ALL=C head -c2 "$$f" | grep -q '^#!' || continue; \
+		sed -i "1s|^#!.*python[0-9.]*\$$|#!/opt/venvs/proxlb/bin/python3|" "$$f"; \
+	done
+
+	# --- Remove dist-info/direct_url.json (leaks build-host source path) ---
+	find $(VENV)/lib -name direct_url.json -delete 2>/dev/null || true
+
 	# --- Strip test dirs, bytecode, and __pycache__ ---
 	find $(VENV) -type d \( -name "test" -o -name "tests" \) \
 	    -exec rm -rf {} + 2>/dev/null || true
