@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.0.0] - 2026-04-22
+
+### Added
+
+- ProxLB can hand placement decisions to the external [`proxlb-solver`](https://pypi.org/project/proxlb-solver/) package. Disabled by default. Opt in via a new `solver:` block in `proxlb.yaml`. See `docs/04_solver.md` for the full reference as well as `config/proxlb_example.yaml`.
+
+### Changed
+
+- ProxLB is now invoked as a module: `python3 -m proxlb`. The in-tree systemd unit and Dockerfile have been updated, but any custom wrappers, service files, or scripts calling `proxlb/main.py` directly must be adjusted.
+- The config file is now validated against a schema. Unknown keys, wrong types, or missing required fields cause startup to fail with a descriptive error. Existing valid configs continue to work unchanged.
+- The container image is now based on Debian due to a runtime problem with additional Python dependencies on Alpine.
+- The Debian package ships a self-contained Python venv including a Python runtime. This was necessary to support multiple Debian releases with a single binary package.
+
+### Removed
+
+- The RPM build has been removed.
+
+
 ## [1.1.13] - 2026-02-18
 
 ### Added

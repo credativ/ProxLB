@@ -1,3 +1,11 @@
+proxlb (2.0.0) stable; urgency=medium
+
+  * Make proxlb runnable as a module `python3 -m proxlb`
+  * Verify user configuration against a new config model
+  * Add a self-contained Python runtime that runs on multiple Debian Releases
+
+ -- Damian Lukowski <damian.lukowski@credativ.de>  Wed, 22 Apr 2026 11:36:47 +0200
+
 proxlb (1.1.13) stable; urgency=medium
 
   [ Dominic Brekau ]
