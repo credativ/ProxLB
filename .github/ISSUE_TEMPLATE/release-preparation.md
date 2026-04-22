@@ -72,7 +72,6 @@ The following pipelines are triggered automatically by the tag push:
 
 - [ ] **Container build** (`30-pipeline-build-container.yml`): images pushed to GHCR and Docker Hub with version tag + `latest`
 - [ ] **Debian package** (`40-build-and-publish-deb-package.yml`): `.deb` built in stable mode, publish webhook triggered
-- [ ] **RPM package** (`20-pipeline-build-rpm-package.yml`): `.rpm` artifact built
 
 ## 6. Post-Release: Artifact Verification
 
