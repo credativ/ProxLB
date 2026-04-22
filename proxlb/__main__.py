@@ -65,6 +65,20 @@ proxmox_api = ProxmoxApi(proxlb_config)
 # Overwrite password after creating the API object
 proxlb_config.proxmox_api.password = "********"
 
+
+def reinstall_sigint() -> None:
+    """
+    There is a quirk in context of PID 1 execution,
+    e.g. as a container entrypoint. The handler is not
+    triggered any more, even though it is still registered.
+    It only happens with solver invocations.
+    """
+    signal.signal(
+        signal.SIGINT,
+        signal.getsignal(signal.SIGINT),
+    )
+
+
 while True:
 
     # Validate if reload signal was sent during runtime
@@ -120,6 +134,7 @@ while True:
             _run_file, _solver_plan = _solver_shadow.run_shadow(
                 proxlb_data, _solver_cfg
             )
+            reinstall_sigint()
 
         Helper.log_node_metrics(proxlb_data, init=False)
 
@@ -138,6 +153,7 @@ while True:
                             f"[solver] active execution failed, falling back to "
                             f"ProxLB plan: {exc}")
                         Balancing(proxmox_api, proxlb_data)
+                    reinstall_sigint()
                 else:
                     Balancing(proxmox_api, proxlb_data)
 
@@ -147,6 +163,7 @@ while True:
                 _solver_shadow.finalize_run(_run_file, dry_run=cli_args.dry_run)
             except Exception as exc:
                 logger.warning(f"[solver] finalize_run failed: {exc}")
+            reinstall_sigint()
 
     # Validate if the JSON output should be
     # printed to stdout
