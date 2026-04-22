@@ -29,7 +29,7 @@ from models.ha_rules import HaRules
 from utils.helper import Helper
 
 
-def main():
+def main() -> None:
     """
     ProxLB main function
     """
@@ -59,7 +59,7 @@ def main():
     proxmox_api = ProxmoxApi(proxlb_config)
 
     # Overwrite password after creating the API object
-    proxlb_config["proxmox_api"]["pass"] = "********"
+    proxlb_config["proxmox_api"]["pass"] = "********"  # noqa: S105
 
     while True:
 
@@ -104,16 +104,15 @@ def main():
             Helper.log_node_metrics(proxlb_data, init=False)
 
             # Perform balancing actions via Proxmox API
-            if proxlb_data["meta"]["balancing"].get("enable", False):
-                if not cli_args.dry_run:
-                    Balancing(proxmox_api, proxlb_data)
+            if proxlb_data["meta"]["balancing"].get("enable", False) and not cli_args.dry_run:
+                Balancing.balance(proxmox_api, proxlb_data)
 
         # Validate if the JSON output should be
         # printed to stdout
         Helper.print_json(proxlb_data, cli_args.json)
         # Validate daemon mode
         Helper.get_daemon_mode(proxlb_config)
-        logger.debug(f"Finished: __main__")
+        logger.debug("Finished: __main__")
 
 
 if __name__ == "__main__":

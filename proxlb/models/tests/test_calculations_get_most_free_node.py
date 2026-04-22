@@ -8,8 +8,6 @@ __copyright__ = "Copyright (C) 2026 Peter Dreuw (@archandha) for credativ GmbH"
 __license__ = "GPL-3.0"
 
 
-import pytest
-
 from models.calculations import Calculations
 
 
@@ -33,8 +31,7 @@ def test_min_usage_with_empty_nodes() -> None:
     """
     Test the case where there are no nodes available (empty nodes dict).
     """
-    method = "cpu"
-    mode = "avg"
+
     proxlb_data = {
         "nodes": {},
         "meta": {"balancing": {}},
