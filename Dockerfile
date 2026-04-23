@@ -8,7 +8,7 @@ RUN /opt/venv/bin/pip3 install /src
 FROM debian:trixie-slim
 
 # Labels
-LABEL maintainer="gyptazy@gyptazy.com"
+LABEL maintainer="credativ GmbH"
 LABEL org.label-schema.name="ProxLB"
 LABEL org.label-schema.description="ProxLB - An advanced load balancer for Proxmox clusters."
 LABEL org.label-schema.vendor="gyptazy"
