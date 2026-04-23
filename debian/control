@@ -1,12 +1,20 @@
 Source: proxlb
-Maintainer: Florian Paul Azim Hoberg <gyptazy@gyptazy.com>
+Maintainer: credativ GmbH <support@credativ.de>
 Section: admin
 Priority: optional
-Standards-Version: 4.5.0
-Build-Depends: debhelper-compat (= 13), dh-python, python3-all, python3-setuptools
+Standards-Version: 4.6.2
+Build-Depends: debhelper-compat (= 13),
+               ca-certificates,
+               curl
 
 Package: proxlb
-Architecture: all
-Depends: ${python3:Depends}, ${misc:Depends}, python3-requests, python3-urllib3, python3-packaging, python3-proxmoxer, python3-yaml
+Architecture: any
+Depends:
+ ${misc:Depends},
+ systemd-standalone-sysusers|systemd,
+ systemd-standalone-tmpfiles|systemd,
 Description: An advanced resource scheduler and load balancer for Proxmox clusters
- An advanced resource scheduler and load balancer for Proxmox clusters that also supports maintenance mode and affinity/anti-affinity rules.
+ ProxLB balances VM and container workloads across Proxmox cluster nodes,
+ respecting affinity/anti-affinity rules, maintenance modes, and resource
+ reservations. Optionally uses a CP-SAT solver for mathematically optimal
+ placement. All Python dependencies including the solver are bundled.

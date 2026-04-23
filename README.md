@@ -14,6 +14,7 @@
    2. [Debian Package](#debian-package)
    4. [Container / Docker](#container--docker)
    5. [Source](#source)
+   6. [CP-SAT Solver (Optional)](#cp-sat-solver-optional)
 6. [Usage / Configuration](#usage--configuration)
    1. [Proxmox HA Integration](#proxmox-ha-integration)
    2. [Options](#options)
@@ -209,7 +210,7 @@ vi config/proxlb.yaml
 
 Start ProxLB by Python3 on the system:
 ```bash
-python3 proxlb/main.py -c config/proxlb.yaml
+python3 -m proxlb -c config/proxlb.yaml
 ```
 
 #### Container Image
@@ -230,6 +231,28 @@ Finally, start the created container.
 ```bash
 docker run -it --rm -v $(pwd)/proxlb.yaml:/etc/proxlb/proxlb.yaml proxlb
 ```
+
+### CP-SAT Solver (Optional)
+ProxLB optionally integrates a CP-SAT-based placement solver (Google OR-Tools) that replaces the built-in greedy balancer with a mathematically optimal assignment engine. It runs in two modes:
+
+* **Shadow mode** *(default)* — solver computes an optimal plan alongside ProxLB for comparison; no migrations are changed.
+* **Active mode** — solver drives all migrations with automatic per-step verification and re-solve on failure.
+
+Both modes produce a structured JSONL log and an HTML report showing the solver plan, node load before/after, and (in active mode) the execution result of every migration.
+
+Add a `solver:` block to your `proxlb.yaml`:
+
+```yaml
+solver:
+  enable: True
+  mode: shadow            # 'shadow' (observe only) or 'active' (solver drives migrations)
+  log_dir: /var/log/proxlb/solver
+  timeout_seconds: 30
+  use_reservations: True
+  active_step_retries: 3
+```
+
+See [docs/04_solver.md](docs/04_solver.md) for the full configuration reference, a description of the feedback loop in active mode, and instructions for generating HTML reports.
 
 ## Usage / Configuration
 Running ProxLB is straightforward and versatile, as it only requires `Python3` and the `proxmoxer` library. This means ProxLB can be executed directly on a Proxmox node or on dedicated systems such as Debian, RedHat, or even FreeBSD, provided that the Proxmox API is accessible from the client running ProxLB. ProxLB can also run inside a Container - Docker or LXC - and is simply up to you.
