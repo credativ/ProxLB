@@ -1,3 +1,9 @@
+proxlb (2.0.1) UNRELEASED; urgency=medium
+
+  * Remove old service file (Closes: #89)
+
+ -- Damian Lukowski <damian.lukowski@credativ.de>  Sat, 25 Apr 2026 22:00:41 +0200
+
 proxlb (2.0.0) stable; urgency=medium
 
   * Make proxlb runnable as a module `python3 -m proxlb`
