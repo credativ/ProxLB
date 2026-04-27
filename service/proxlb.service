@@ -4,6 +4,7 @@ After=network-online.target pveproxy.service
 Wants=network-online.target pveproxy.service
 
 [Service]
+Environment="REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
 ExecStart=python3 -m proxlb -c /etc/proxlb/proxlb.yaml
 User=plb
 ExecReload=/bin/kill -HUP $MAINPID
