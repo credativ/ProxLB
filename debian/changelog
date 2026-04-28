@@ -1,3 +1,9 @@
+proxlb (2.0.1) stable; urgency=medium
+
+  * Fix path to SSL CA bundle (Fixes: #91)
+
+ -- Florian Paul Azim Hoberg gyptazy <florian.hoberg@credativ.de>  Wed, 29 Apr 2026 07:21:12 +0200
+
 proxlb (2.0.0) stable; urgency=medium
 
   * Make proxlb runnable as a module `python3 -m proxlb`
