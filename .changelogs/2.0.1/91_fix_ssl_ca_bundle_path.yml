@@ -1,0 +1,2 @@
+fixed:
+- Fix path to SSL CA bundle [#91]
