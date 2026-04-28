@@ -1,2 +1,1 @@
 config/proxlb_example.yaml etc/proxlb/
-debian/proxlb.service lib/systemd/system/

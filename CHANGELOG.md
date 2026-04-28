@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix path to SSL CA bundle [#91]
 
+### Removed
+
+- Remove deprecated systemd unit file [#89]
+
 
 ## [2.0.0] - 2026-04-22
 
