@@ -1,6 +1,7 @@
 proxlb (2.0.1) stable; urgency=medium
 
-  * Fix path to SSL CA bundle (Fixes: #91)
+  * Fix path to SSL CA bundle. (Closes: #91)
+  * Remove deprecated systemd unit file. (Closes: #89)
 
  -- Florian Paul Azim Hoberg gyptazy <florian.hoberg@credativ.de>  Wed, 29 Apr 2026 07:21:12 +0200
 
