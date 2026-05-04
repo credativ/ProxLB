@@ -9,6 +9,7 @@ Build-Depends: debhelper-compat (= 13),
 
 Package: proxlb
 Architecture: any
+Pre-Depends: ${misc:Pre-Depends}
 Depends:
  ${misc:Depends},
  systemd-standalone-sysusers|systemd,
