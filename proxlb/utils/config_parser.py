@@ -16,8 +16,8 @@ try:
 except ImportError:
     PYYAML_PRESENT = False
 from enum import StrEnum
-from typing import Optional, assert_never
-from pydantic import BaseModel, Field, ValidationError
+from typing import Any, Optional, assert_never
+from pydantic import BaseModel, Field, PrivateAttr, ValidationError
 from pathlib import Path
 from proxlb.utils.logger import SystemdLogger
 
@@ -58,9 +58,23 @@ class Config(BaseModel):
         wait_time: int = 1
 
     class ProxmoxCluster(BaseModel):
+        class MaintenanceNodesSchedule(BaseModel):
+            duration: int = Field(default=0, ge=0)
+            pre_migration: int = Field(default=0, alias="pre-migration", ge=0)
+            schedules: dict[str, list[str]] = Field(default_factory=dict)
+
+        _maintenance_nodes_static: list[str] = PrivateAttr(default_factory=list)
+
         ignore_nodes: list[str] = []
         maintenance_nodes: list[str] = []
+        maintenance_nodes_schedule: MaintenanceNodesSchedule = Field(default_factory=MaintenanceNodesSchedule)
         overprovisioning: bool = False
+
+        def model_post_init(self, __context: Any) -> None:
+            self._maintenance_nodes_static = list(dict.fromkeys(self.maintenance_nodes))
+
+        def static_maintenance_nodes(self) -> list[str]:
+            return list(self._maintenance_nodes_static)
 
     class Balancing(BaseModel):
         class Resource(StrEnum):

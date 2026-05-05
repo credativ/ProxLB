@@ -14,6 +14,7 @@ import re
 import socket
 import sys
 import time
+from datetime import datetime, timedelta, time as datetime_time
 from proxlb.utils import version
 from proxlb.utils.config_parser import Config
 from proxlb.utils.logger import SystemdLogger
@@ -48,6 +49,15 @@ class Helper:
             Checks if the daemon mode is active and handles the scheduling accordingly.
     """
     proxlb_reload = False
+    weekdays = {
+        "monday": 0,
+        "tuesday": 1,
+        "wednesday": 2,
+        "thursday": 3,
+        "friday": 4,
+        "saturday": 5,
+        "sunday": 6,
+    }
 
     def __init__(self) -> None:
         """
@@ -140,6 +150,84 @@ class Helper:
             sys.exit(0)
 
         logger.debug("Finished: get_daemon_mode.")
+
+    @staticmethod
+    def apply_maintenance_nodes_schedule(proxlb_config: Config, now: Optional[datetime] = None) -> None:
+        """
+        Adds nodes with active maintenance schedules to the runtime maintenance list.
+
+        The configured static maintenance list is kept as the source of truth. This
+        allows scheduled entries to be removed automatically after their window ends.
+        """
+        logger.debug("Starting: apply_maintenance_nodes_schedule.")
+        now = now or datetime.now()
+        schedule_config = proxlb_config.proxmox_cluster.maintenance_nodes_schedule
+        maintenance_nodes = proxlb_config.proxmox_cluster.static_maintenance_nodes()
+
+        if not schedule_config.schedules:
+            proxlb_config.proxmox_cluster.maintenance_nodes = maintenance_nodes
+            logger.debug("No maintenance_nodes_schedule configured.")
+            logger.debug("Finished: apply_maintenance_nodes_schedule.")
+            return
+
+        scheduled_nodes: list[str] = []
+        for node_name, schedules in schedule_config.schedules.items():
+            for schedule in schedules:
+                if Helper.is_maintenance_schedule_active(
+                    schedule,
+                    schedule_config.duration,
+                    schedule_config.pre_migration,
+                    now,
+                ):
+                    scheduled_nodes.append(node_name)
+                    logger.info(f"Node: {node_name} has been set to maintenance mode (by ProxLB schedule).")
+                    break
+
+        proxlb_config.proxmox_cluster.maintenance_nodes = list(dict.fromkeys(maintenance_nodes + scheduled_nodes))
+        logger.debug(f"Runtime maintenance nodes: {proxlb_config.proxmox_cluster.maintenance_nodes}")
+        logger.debug("Finished: apply_maintenance_nodes_schedule.")
+
+    @staticmethod
+    def is_maintenance_schedule_active(schedule: str, duration_hours: int, pre_migration_minutes: int, now: datetime) -> bool:
+        """
+        Returns True when now is inside a weekly maintenance schedule window.
+        """
+        parsed_schedule = Helper.parse_maintenance_schedule(schedule)
+        if not parsed_schedule:
+            return False
+
+        weekday, schedule_time = parsed_schedule
+        weekday_delta = weekday - now.weekday()
+        schedule_date = (now + timedelta(days=weekday_delta)).date()
+
+        for week_offset in (-1, 0, 1):
+            schedule_start = datetime.combine(
+                schedule_date + timedelta(days=week_offset * 7),
+                schedule_time,
+            )
+            window_start = schedule_start - timedelta(minutes=pre_migration_minutes)
+            window_end = schedule_start + timedelta(hours=duration_hours)
+
+            if window_start <= now < window_end:
+                return True
+
+        return False
+
+    @staticmethod
+    def parse_maintenance_schedule(schedule: str) -> Optional[tuple[int, datetime_time]]:
+        """
+        Parses weekly maintenance schedules in the format 'Monday, 8:00'.
+        """
+        try:
+            weekday_name, time_config = [part.strip() for part in schedule.split(",", 1)]
+            hour_config, minute_config = time_config.split(":", 1)
+            weekday = Helper.weekdays[weekday_name.lower()]
+            schedule_time = datetime_time(hour=int(hour_config), minute=int(minute_config))
+        except (KeyError, TypeError, ValueError):
+            logger.warning(f"Ignoring invalid maintenance schedule '{schedule}'. Expected format: Monday, 8:00")
+            return None
+
+        return weekday, schedule_time
 
     @staticmethod
     def get_service_delay(proxlb_config: Config) -> None:

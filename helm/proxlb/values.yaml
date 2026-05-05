@@ -32,6 +32,10 @@ configmap:
       timeout: 10
     proxmox_cluster:
       maintenance_nodes: [ ]
+      maintenance_nodes_schedule:
+        duration: 3
+        pre-migration: 10
+        schedules: { }
       ignore_nodes: [ ]
       overprovisioning: True
     balancing:
