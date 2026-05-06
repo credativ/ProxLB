@@ -64,7 +64,7 @@ def _proxlb_data(
 
 @patch.object(Balancing, "_exec_rebalancing_vm")
 @patch.object(Balancing, "_exec_rebalancing_ct")
-def test_vm_in_balance_types_delegates_to_exec_rebalancing_vm(mock_ct, mock_vm) -> None:
+def test_vm_in_balance_types_delegates_to_exec_rebalancing_vm(mock_ct: MagicMock, mock_vm: MagicMock) -> None:
     """A VM guest whose type is listed in balance_types must trigger _exec_rebalancing_vm."""
     mock_vm.return_value = "UPID:node1:vm1"
     proxlb_data = _proxlb_data("vm1", _vm(), balance_types=[GuestType.Vm])
@@ -78,7 +78,7 @@ def test_vm_in_balance_types_delegates_to_exec_rebalancing_vm(mock_ct, mock_vm) 
 
 @patch.object(Balancing, "_exec_rebalancing_vm")
 @patch.object(Balancing, "_exec_rebalancing_ct")
-def test_vm_not_in_balance_types_returns_none(mock_ct, mock_vm) -> None:
+def test_vm_not_in_balance_types_returns_none(mock_ct: MagicMock, mock_vm: MagicMock) -> None:
     """A VM guest whose type is not listed in balance_types must be skipped (returns None)."""
     proxlb_data = _proxlb_data("vm1", _vm(), balance_types=[GuestType.Ct])
 
@@ -91,7 +91,7 @@ def test_vm_not_in_balance_types_returns_none(mock_ct, mock_vm) -> None:
 
 @patch.object(Balancing, "_exec_rebalancing_vm")
 @patch.object(Balancing, "_exec_rebalancing_ct")
-def test_ct_in_balance_types_delegates_to_exec_rebalancing_ct(mock_ct, mock_vm) -> None:
+def test_ct_in_balance_types_delegates_to_exec_rebalancing_ct(mock_ct: MagicMock, mock_vm: MagicMock) -> None:
     """A CT guest whose type is listed in balance_types must trigger _exec_rebalancing_ct."""
     mock_ct.return_value = "UPID:node1:ct1"
     proxlb_data = _proxlb_data("ct1", _ct(), balance_types=[GuestType.Ct])
@@ -105,7 +105,7 @@ def test_ct_in_balance_types_delegates_to_exec_rebalancing_ct(mock_ct, mock_vm) 
 
 @patch.object(Balancing, "_exec_rebalancing_vm")
 @patch.object(Balancing, "_exec_rebalancing_ct")
-def test_ct_not_in_balance_types_returns_none(mock_ct, mock_vm) -> None:
+def test_ct_not_in_balance_types_returns_none(mock_ct: MagicMock, mock_vm: MagicMock) -> None:
     """A CT guest whose type is not listed in balance_types must be skipped (returns None)."""
     proxlb_data = _proxlb_data("ct1", _ct(), balance_types=[GuestType.Vm])
 
@@ -118,7 +118,7 @@ def test_ct_not_in_balance_types_returns_none(mock_ct, mock_vm) -> None:
 
 @patch.object(Balancing, "_exec_rebalancing_vm")
 @patch.object(Balancing, "_exec_rebalancing_ct")
-def test_unknown_guest_type_raises(mock_ct, mock_vm) -> None:
+def test_unknown_guest_type_raises(mock_ct: MagicMock, mock_vm: MagicMock) -> None:
     """An unknown guest type must raise AssertionError via assert_never (all valid types exhausted)."""
     odd_guest = MagicMock()
     odd_guest.id = 301

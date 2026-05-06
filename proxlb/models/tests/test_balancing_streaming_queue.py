@@ -16,6 +16,7 @@ from unittest.mock import MagicMock, patch
 
 from proxlb.models.balancing import Balancing
 from proxlb.utils.config_parser import Config
+from proxlb.utils.proxmox_api import ProxmoxApi
 
 GuestType = Config.GuestType
 
@@ -41,7 +42,7 @@ def _guest(
 
 
 def _proxlb_data(
-        guests: dict,
+        guests: dict[str, MagicMock],
         parallel: bool = True,
         parallel_jobs: int = 2,
 ) -> MagicMock:
@@ -60,7 +61,9 @@ def _proxlb_data(
 @patch("proxlb.models.balancing.time.sleep")
 @patch.object(Balancing, "_get_rebalancing_job_status")
 @patch.object(Balancing, "_exec_rebalancing_vm")
-def test_no_migration_when_guests_already_on_target(mock_exec_vm, mock_get_status, mock_sleep) -> None:
+def test_no_migration_when_guests_already_on_target(
+        mock_exec_vm: MagicMock, mock_get_status: MagicMock, mock_sleep: MagicMock,
+) -> None:
     """Guests already on the target node must not trigger any migration."""
     proxlb_data = _proxlb_data({
         "vm1": _guest(101, "node1", "node1"),
@@ -77,7 +80,9 @@ def test_no_migration_when_guests_already_on_target(mock_exec_vm, mock_get_statu
 @patch("proxlb.models.balancing.time.sleep")
 @patch.object(Balancing, "_get_rebalancing_job_status")
 @patch.object(Balancing, "_exec_rebalancing_vm")
-def test_no_migration_when_guests_are_ignored(mock_exec_vm, mock_get_status, mock_sleep) -> None:
+def test_no_migration_when_guests_are_ignored(
+        mock_exec_vm: MagicMock, mock_get_status: MagicMock, mock_sleep: MagicMock,
+) -> None:
     """Ignored guests must not be migrated even when their target node differs."""
     proxlb_data = _proxlb_data({
         "vm1": _guest(101, "node1", "node2", ignore=True),
@@ -93,7 +98,9 @@ def test_no_migration_when_guests_are_ignored(mock_exec_vm, mock_get_status, moc
 @patch("proxlb.models.balancing.time.sleep")
 @patch.object(Balancing, "_get_rebalancing_job_status")
 @patch.object(Balancing, "_exec_rebalancing_vm")
-def test_sequential_mode_runs_one_migration_at_a_time(mock_exec_vm, mock_get_status, mock_sleep) -> None:
+def test_sequential_mode_runs_one_migration_at_a_time(
+        mock_exec_vm: MagicMock, mock_get_status: MagicMock, mock_sleep: MagicMock,
+) -> None:
     """With parallel=False only one migration must be in flight at any point in time."""
     proxlb_data = _proxlb_data({
         "vm1": _guest(101, "node1", "node2"),
@@ -104,12 +111,12 @@ def test_sequential_mode_runs_one_migration_at_a_time(mock_exec_vm, mock_get_sta
     in_flight = [0]
     max_concurrent = [0]
 
-    def tracking_exec(api, data, name) -> str:
+    def tracking_exec(api: ProxmoxApi, data: MagicMock, name: str) -> str:
         in_flight[0] += 1
         max_concurrent[0] = max(max_concurrent[0], in_flight[0])
         return f"job-{name}"
 
-    def tracking_status(api, job) -> Balancing.BalancingStatus:
+    def tracking_status(api: ProxmoxApi, job: Balancing.RebalancingJob) -> Balancing.BalancingStatus:
         in_flight[0] -= 1
         return Balancing.BalancingStatus.FINISHED
 
@@ -126,7 +133,9 @@ def test_sequential_mode_runs_one_migration_at_a_time(mock_exec_vm, mock_get_sta
 @patch("proxlb.models.balancing.time.sleep")
 @patch.object(Balancing, "_get_rebalancing_job_status")
 @patch.object(Balancing, "_exec_rebalancing_vm")
-def test_parallel_streaming_submits_next_as_soon_as_slot_frees(mock_exec_vm, mock_get_status, mock_sleep) -> None:
+def test_parallel_streaming_submits_next_as_soon_as_slot_frees(
+        mock_exec_vm: MagicMock, mock_get_status: MagicMock, mock_sleep: MagicMock,
+) -> None:
     """
     Core streaming guarantee: with parallel_job_limit=2 and 3 guests, the 3rd
     migration must be submitted as soon as the 1st finishes — without waiting
@@ -143,7 +152,7 @@ def test_parallel_streaming_submits_next_as_soon_as_slot_frees(mock_exec_vm, moc
 
     call_log: list[tuple[str, str]] = []
 
-    def tracking_exec(api, data, name) -> str:
+    def tracking_exec(api: ProxmoxApi, data: MagicMock, name: str) -> str:
         call_log.append(("submit", name))
         return f"job-{name}"
 
@@ -154,7 +163,7 @@ def test_parallel_streaming_submits_next_as_soon_as_slot_frees(mock_exec_vm, moc
         "job-vm3": iter([Balancing.BalancingStatus.FINISHED]),
     }
 
-    def tracking_status(api, job) -> Balancing.BalancingStatus:
+    def tracking_status(api: ProxmoxApi, job: Balancing.RebalancingJob) -> Balancing.BalancingStatus:
         result = next(status_sequences[job.job_id])
         if result == Balancing.BalancingStatus.FINISHED:
             call_log.append(("finish", job.name))
@@ -185,7 +194,9 @@ def test_parallel_streaming_submits_next_as_soon_as_slot_frees(mock_exec_vm, moc
 @patch("proxlb.models.balancing.time.sleep")
 @patch.object(Balancing, "_get_rebalancing_job_status")
 @patch.object(Balancing, "_exec_rebalancing_vm")
-def test_parallel_concurrency_never_exceeds_limit(mock_exec_vm, mock_get_status, mock_sleep) -> None:
+def test_parallel_concurrency_never_exceeds_limit(
+        mock_exec_vm: MagicMock, mock_get_status: MagicMock, mock_sleep: MagicMock,
+) -> None:
     """The number of in-flight migrations must never exceed parallel_job_limit."""
     limit = 3
     num_guests = 9
@@ -198,12 +209,12 @@ def test_parallel_concurrency_never_exceeds_limit(mock_exec_vm, mock_get_status,
     in_flight = [0]
     max_concurrent = [0]
 
-    def tracking_exec(api, data, name) -> str:
+    def tracking_exec(api: ProxmoxApi, data: MagicMock, name: str) -> str:
         in_flight[0] += 1
         max_concurrent[0] = max(max_concurrent[0], in_flight[0])
         return f"job-{name}"
 
-    def tracking_status(api, job) -> Balancing.BalancingStatus:
+    def tracking_status(api: ProxmoxApi, job: Balancing.RebalancingJob) -> Balancing.BalancingStatus:
         in_flight[0] -= 1
         return Balancing.BalancingStatus.FINISHED
 
@@ -222,7 +233,9 @@ def test_parallel_concurrency_never_exceeds_limit(mock_exec_vm, mock_get_status,
 @patch("proxlb.models.balancing.time.sleep")
 @patch.object(Balancing, "_get_rebalancing_job_status")
 @patch.object(Balancing, "_exec_rebalancing_vm")
-def test_failed_migration_returns_false(mock_exec_vm, mock_get_status, mock_sleep) -> None:
+def test_failed_migration_returns_false(
+        mock_exec_vm: MagicMock, mock_get_status: MagicMock, mock_sleep: MagicMock,
+) -> None:
     """A FAILED migration status must cause balance() to return False."""
     proxlb_data = _proxlb_data({
         "vm1": _guest(101, "node1", "node2"),
