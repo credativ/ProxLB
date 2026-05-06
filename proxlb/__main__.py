@@ -152,10 +152,10 @@ while True:
                         logger.warning(
                             f"[solver] active execution failed, falling back to "
                             f"ProxLB plan: {exc}")
-                        Balancing(proxmox_api, proxlb_data)
+                        Balancing.balance(proxmox_api, proxlb_data)
                     reinstall_sigint()
                 else:
-                    Balancing(proxmox_api, proxlb_data)
+                    Balancing.balance(proxmox_api, proxlb_data)
 
         # Record whether balancing was executed or skipped (dry-run).
         if _run_file is not None:
