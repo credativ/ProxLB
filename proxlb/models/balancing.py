@@ -287,7 +287,7 @@ class Balancing:
     def _handle_job_status(
             proxmox_api: ProxmoxApi,
             job: 'Balancing.RebalancingJob',
-            jobs_to_wait: 'list[Balancing.RebalancingJob]',
+            jobs_to_wait: list['Balancing.RebalancingJob'],
             max_retries: int,
     ) -> bool:
         """
