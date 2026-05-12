@@ -99,41 +99,31 @@ class Balancing:
 
         jobs_to_wait: list[Balancing.RebalancingJob] = []
         max_retries = proxlb_data.meta.balancing.max_job_validation
-        item_iterator = iter(proxlb_data.guests.items())
-        migration_done = False
         error_occurred = False
 
         logger.debug("Starting: Balancing loop for guests.")
-        while True:
-            element = next(item_iterator, None)
-            if not element:
-                logger.debug("Finished: no more guests to process.")
-                migration_done = True
-            else:
-                guest_name, guest_meta = element
-                job_id = Balancing._exec_rebalancing(proxmox_api, proxlb_data, guest_name)
-
-                if job_id is not None:
-                    jobs_to_wait.append(Balancing.RebalancingJob(
-                        name=guest_name,
-                        id=guest_meta.id,
-                        current_node=guest_meta.node_current,
-                        job_id=job_id,
-                    ))
-
-            # Wait for at least one job to complete when the queue is full or all guests are queued
-            while len(jobs_to_wait) >= parallel_job_limit or (migration_done and len(jobs_to_wait) > 0):
-                for job in list(jobs_to_wait):
-                    if Balancing._handle_job_status(proxmox_api, job, jobs_to_wait, max_retries):
-                        error_occurred = True
-
-                if len(jobs_to_wait) >= parallel_job_limit or (migration_done and len(jobs_to_wait) > 0):
+        for guest_name, guest_meta in proxlb_data.guests.items():
+            while len(jobs_to_wait) >= parallel_job_limit:
+                if Balancing._check_jobs_and_update(proxmox_api, jobs_to_wait, max_retries):
+                    error_occurred = True
+                if len(jobs_to_wait) >= parallel_job_limit:
                     time.sleep(5)
 
-            if migration_done and len(jobs_to_wait) == 0:
-                logger.debug("Finished: Balancing loop for guests. All guests processed and migrations processed.")
-                break
+            job_id = Balancing._exec_rebalancing(proxmox_api, proxlb_data, guest_name)
+            if job_id is not None:
+                jobs_to_wait.append(Balancing.RebalancingJob(
+                    name=guest_name,
+                    id=guest_meta.id,
+                    current_node=guest_meta.node_current,
+                    job_id=job_id,
+                ))
 
+        while jobs_to_wait:
+            if Balancing._check_jobs_and_update(proxmox_api, jobs_to_wait, max_retries):
+              error_occurred = True
+            if jobs_to_wait:
+              time.sleep(5)
+        
         if error_occurred:
             logger.warning(
                 "Balancing: Some migrations did not complete successfully. "
@@ -283,6 +273,25 @@ class Balancing:
         logger.debug("Finished: _exec_rebalancing_ct.")
         return job_id
 
+    @staticmethod
+    def _check_jobs_and_update(proxmox_api: ProxmoxApi, jobs_to_wait: list['Balancing.RebalancingJob'], max_retries: int) -> bool:
+        """
+        Checks the status of all in-flight jobs and updates the jobs_to_wait list accordingly.
+
+        Args:
+            proxmox_api (ProxmoxApi): The Proxmox API client instance.
+            jobs_to_wait (list): The list of currently in-flight jobs (mutated in place).
+            max_retries (int): Maximum number of status checks before the job is timed out.
+
+        Returns:
+            bool: True if any job entered an error state (FAILED or timed out), False otherwise.
+        """
+        error_occurred = False
+        for job in list(jobs_to_wait):
+            if Balancing._handle_job_status(proxmox_api, job, jobs_to_wait, max_retries):
+                error_occurred = True
+        return error_occurred
+    
     @staticmethod
     def _handle_job_status(
             proxmox_api: ProxmoxApi,
