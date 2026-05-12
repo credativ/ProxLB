@@ -120,10 +120,10 @@ class Balancing:
 
         while jobs_to_wait:
             if Balancing._check_jobs_and_update(proxmox_api, jobs_to_wait, max_retries):
-              error_occurred = True
+                error_occurred = True
             if jobs_to_wait:
-              time.sleep(5)
-        
+                time.sleep(5)
+
         if error_occurred:
             logger.warning(
                 "Balancing: Some migrations did not complete successfully. "
@@ -291,7 +291,7 @@ class Balancing:
             if Balancing._handle_job_status(proxmox_api, job, jobs_to_wait, max_retries):
                 error_occurred = True
         return error_occurred
-    
+
     @staticmethod
     def _handle_job_status(
             proxmox_api: ProxmoxApi,
