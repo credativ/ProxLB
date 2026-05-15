@@ -1,0 +1,8 @@
+fixed:
+- Fix streaming migration queue in the balancing algorithm to correctly track in-flight
+  migration jobs up to the configured parallel job limit
+- Resolve an issue where the queue could stall or exit prematurely when all guests were
+  dispatched but not all migrations had finished
+- Ensure failed migrations are properly detected and reported instead of being silently
+  skipped during parallel execution
+- added some pytest tasks
