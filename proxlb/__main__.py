@@ -90,6 +90,7 @@ while True:
         Helper.proxlb_reload = False
 
     # Get all required objects from the Proxmox cluster
+    Helper.apply_maintenance_nodes_schedule(proxlb_config)
     nodes = Nodes.get_nodes(proxmox_api, proxlb_config)
     meta = Features.validate_any_non_pve9_node(proxlb_config, nodes)
     pools = Pools.get_pools(proxmox_api)

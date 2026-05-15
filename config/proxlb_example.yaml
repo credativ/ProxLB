@@ -13,6 +13,12 @@ proxmox_api:
 
 proxmox_cluster:
   maintenance_nodes: ['virt66.example.com']
+  maintenance_nodes_schedule:
+    duration: 3                       # Duration in hours after the configured schedule start
+    pre-migration: 10                 # Start maintenance this many minutes before the configured schedule
+    schedules:
+      virt77.example.com:
+        - 'Monday, 8:00'
   ignore_nodes: []
   overprovisioning: True
 

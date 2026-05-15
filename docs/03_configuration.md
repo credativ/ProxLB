@@ -265,6 +265,20 @@ The maintenance_nodes key must be defined as a list, even if it only includes a 
 
 This feature is particularly useful during planned maintenance, upgrades, or troubleshooting, ensuring that services continue to run with minimal disruption while the specified node is being worked on.
 
+Maintenance mode can also be scheduled with `maintenance_nodes_schedule` under `proxmox_cluster`. ProxLB evaluates the schedule during each runtime cycle, adds matching nodes to the runtime maintenance list, and removes them again once the active window is over.
+
+```yaml
+proxmox_cluster:
+  maintenance_nodes_schedule:
+    duration: 3       # Hours after the configured start time
+    pre-migration: 10 # Minutes before the configured start time
+    schedules:
+      virt77.example.com:
+        - 'Monday, 8:00'
+```
+
+In this example, `virt77.example.com` enters maintenance mode every Monday at 07:50 and leaves it at 11:00. Schedule entries use the format `Weekday, H:MM` or `Weekday, HH:MM`.
+
 ## 10. Balancing Methods
 ProxLB provides multiple balancing modes that define *how* resources are evaluated and compared during cluster balancing.
 Each mode reflects a different strategy for determining load and distributing guests (VMs or containers) between nodes.
