@@ -3,5 +3,5 @@ __app_desc__ = "An advanced resource scheduler and load balancer for Proxmox clu
 __author__ = "Florian Paul Azim Hoberg <gyptazy>"
 __copyright__ = "Copyright (C) 2025 Florian Paul Azim Hoberg (@gyptazy)"
 __license__ = "GPL-3.0"
-__version__ = "2.0.1"
+__version__ = "2.1.0"
 __url__ = "https://github.com/credativ/ProxLB"

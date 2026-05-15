@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="proxlb",
-    version="2.0.1",
+    version="2.1.0",
     description="An advanced resource scheduler and load balancer for Proxmox clusters.",
     long_description="An advanced resource scheduler and load balancer for Proxmox clusters that also supports maintenance modes and affinity/anti-affinity rules.",
     author="Florian Paul Azim Hoberg",
