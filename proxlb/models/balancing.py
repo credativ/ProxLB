@@ -96,6 +96,7 @@ class Balancing:
         """
         logger.debug("Starting: balance.")
         parallel_job_limit = Balancing.get_parallel_job_limit(proxlb_data.meta.balancing)
+        logger.debug(f"Balancing: parallel_job_limit resolved to {parallel_job_limit}.")
 
         jobs_to_wait: list[Balancing.RebalancingJob] = []
         max_retries = proxlb_data.meta.balancing.max_job_validation
@@ -110,6 +111,7 @@ class Balancing:
                     time.sleep(5)
 
             job_id = Balancing._exec_rebalancing(proxmox_api, proxlb_data, guest_name)
+            logger.debug(f"Balancing: job_id for {guest_name}: {job_id!r}, jobs_to_wait len: {len(jobs_to_wait)}")
             if job_id is not None:
                 jobs_to_wait.append(Balancing.RebalancingJob(
                     name=guest_name,
