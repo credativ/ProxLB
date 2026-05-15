@@ -115,6 +115,7 @@ class Config(BaseModel):
         mode: Mode = Mode.Used
         node_resource_reserve: Optional[dict[str, dict["Config.Balancing.Resource", int]]] = None
         parallel: bool = False
+        parallel_jobs: int = 5
         pools: Optional[dict[str, Pool]] = None
         psi: Optional[Psi] = None
         with_conntrack_state: bool = True

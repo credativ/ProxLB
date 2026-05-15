@@ -1,0 +1,2 @@
+fixed:
+- Adjust the migration queue handler to immediately add new jobs when another one finished. [#6]

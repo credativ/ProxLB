@@ -12,12 +12,11 @@ __license__ = "GPL-3.0"
 
 import proxmoxer
 import time
-from itertools import islice
 from proxlb.utils.logger import SystemdLogger
 from proxlb.utils.proxmox_api import ProxmoxApi
 from proxlb.utils.config_parser import Config
 from proxlb.utils.proxlb_data import ProxLbData
-from typing import Dict, Generator, Optional, assert_never
+from typing import Optional, assert_never
 
 GuestType = Config.GuestType
 
@@ -44,9 +43,10 @@ class Balancing:
         Executes the rebalancing of a container (CT) to a new node within the cluster. Logs the migration
         process and handles exceptions.
 
-    get_rebalancing_job_status(self, proxmox_api: any, proxlb_data: Dict[str, Any], guest_name: str, guest_current_node: str, job_id: int, retry_counter: int = 1) -> bool:
+    get_rebalancing_job_status(self, proxmox_api: any, proxlb_data: Dict[str, Any], guest_name: str, guest_current_node: str, job_id: int, retry_counter: int = 1, wait: bool = True) -> Optional[bool]:
         Monitors the status of a rebalancing job on a Proxmox node until it completes or a timeout
-        is reached. Returns True if the job completed successfully, False otherwise.
+        is reached. Returns True if the job completed successfully, False if it failed, and None
+        when the job is still running and wait is disabled.
     """
 
     def __init__(self, proxmox_api: ProxmoxApi, proxlb_data: ProxLbData) -> None:
@@ -57,79 +57,96 @@ class Balancing:
             proxmox_api (object): The Proxmox API client instance used to interact with the Proxmox cluster.
             proxlb_data (dict): A dictionary containing data related to the ProxLB load balancing configuration.
         """
-        def chunk_dict(data: Dict[str, ProxLbData.Guest], size: int) -> Generator[Dict[str, ProxLbData.Guest], None, None]:
-            """
-            Splits a dictionary into chunks of a specified size.
-            Args:
-                data (dict): The dictionary to be split into chunks.
-                size (int): The size of each chunk.
-            Yields:
-                dict: A chunk of the original dictionary with the specified size.
-            """
-            logger.debug("Starting: chunk_dict.")
-            it = iter(data.items())
-            for chunk in range(0, len(data), size):
-                yield dict(islice(it, size))
-
         # Validate if balancing should be performed in parallel or sequentially.
         # If parallel balancing is enabled, set the number of parallel jobs.
-        parallel_jobs = proxlb_data.meta.balancing.parallel_jobs
+        parallel_jobs = max(1, proxlb_data.meta.balancing.parallel_jobs)
         if not proxlb_data.meta.balancing.parallel:
             parallel_jobs = 1
             logger.debug("Balancing: Parallel balancing is disabled. Running sequentially.")
         else:
             logger.debug(f"Balancing: Parallel balancing is enabled. Running with {parallel_jobs} parallel jobs.")
+        logger.info(f"Balancing: Allowing up to {parallel_jobs} parallel migration job(s).")
 
-        for chunk in chunk_dict(proxlb_data.guests, parallel_jobs):
-            jobs_to_wait = []
+        guest_items = iter(proxlb_data.guests.items())
+        active_jobs: list[tuple[str, str, str, int]] = []
+        pending_guests = True
 
-            for guest_name, guest_meta in chunk.items():
+        while pending_guests or active_jobs:
+            while pending_guests and len(active_jobs) < parallel_jobs:
+                try:
+                    guest_name, guest_meta = next(guest_items)
+                except StopIteration:
+                    pending_guests = False
+                    break
 
-                # Check if the guest's target is not the same as the current node
-                if guest_meta.node_current != guest_meta.node_target:
-
-                    # Check if the guest is not ignored and perform the balancing
-                    # operation based on the guest type
-                    if not guest_meta.ignore:
-                        job_id = None
-
-                        # VM Balancing
-                        if guest_meta.type == GuestType.Vm:
-                            if GuestType.Vm in proxlb_data.meta.balancing.balance_types:
-                                logger.debug(f"Balancing: Balancing for guest {guest_name} of type VM started.")
-                                job_id = self.exec_rebalancing_vm(proxmox_api, proxlb_data, guest_name)
-                            else:
-                                logger.debug(
-                                    f"Balancing: Balancing for guest {guest_name} will not be performed. "
-                                    "Guest is of type VM which is not included in allowed balancing types.")
-
-                        # CT Balancing
-                        elif guest_meta.type == GuestType.Ct:
-                            if GuestType.Ct in proxlb_data.meta.balancing.balance_types:
-                                logger.debug(f"Balancing: Balancing for guest {guest_name} of type CT started.")
-                                job_id = self.exec_rebalancing_ct(proxmox_api, proxlb_data, guest_name)
-                            else:
-                                logger.debug(
-                                    f"Balancing: Balancing for guest {guest_name} will not be performed. "
-                                    "Guest is of type CT which is not included in allowed balancing types.")
-
-                        # Just in case we get a new type of guest in the future
-                        else:
-                            logger.critical(f"Balancing: Got unexpected guest type: {guest_meta.type}. Cannot proceed guest: {guest_meta.name}.")
-                            assert_never(guest_meta.type)
-
-                        if job_id:
-                            jobs_to_wait.append((guest_name, guest_meta.node_current, job_id))
-
-                    else:
-                        logger.debug(f"Balancing: Guest {guest_name} is ignored and will not be rebalanced.")
-                else:
-                    logger.debug(f"Balancing: Guest {guest_name} is already on the target node {guest_meta.node_target} and will not be rebalanced.")
-
-            # Wait for all jobs in the current chunk to complete
-            for guest_name, node, job_id in jobs_to_wait:
+                job_id = self.start_rebalancing_job(proxmox_api, proxlb_data, guest_name, guest_meta)
                 if job_id:
-                    self.get_rebalancing_job_status(proxmox_api, proxlb_data, guest_name, node, job_id)
+                    active_jobs.append((guest_name, guest_meta.node_current, job_id, 1))
+
+            if active_jobs:
+                active_jobs = self.wait_for_rebalancing_job_slot(proxmox_api, proxlb_data, active_jobs)
+
+    def start_rebalancing_job(self, proxmox_api: ProxmoxApi, proxlb_data: ProxLbData, guest_name: str, guest_meta: ProxLbData.Guest) -> Optional[str]:
+        """
+        Starts a guest rebalancing job when the guest is eligible for migration.
+        """
+        # Check if the guest's target is not the same as the current node
+        if guest_meta.node_current == guest_meta.node_target:
+            logger.debug(f"Balancing: Guest {guest_name} is already on the target node {guest_meta.node_target} and will not be rebalanced.")
+            return None
+
+        # Check if the guest is not ignored and perform the balancing
+        # operation based on the guest type
+        if guest_meta.ignore:
+            logger.debug(f"Balancing: Guest {guest_name} is ignored and will not be rebalanced.")
+            return None
+
+        # VM Balancing
+        if guest_meta.type == GuestType.Vm:
+            if GuestType.Vm in proxlb_data.meta.balancing.balance_types:
+                logger.debug(f"Balancing: Balancing for guest {guest_name} of type VM started.")
+                return self.exec_rebalancing_vm(proxmox_api, proxlb_data, guest_name)
+
+            logger.debug(
+                f"Balancing: Balancing for guest {guest_name} will not be performed. "
+                "Guest is of type VM which is not included in allowed balancing types.")
+            return None
+
+        # CT Balancing
+        if guest_meta.type == GuestType.Ct:
+            if GuestType.Ct in proxlb_data.meta.balancing.balance_types:
+                logger.debug(f"Balancing: Balancing for guest {guest_name} of type CT started.")
+                return self.exec_rebalancing_ct(proxmox_api, proxlb_data, guest_name)
+
+            logger.debug(
+                f"Balancing: Balancing for guest {guest_name} will not be performed. "
+                "Guest is of type CT which is not included in allowed balancing types.")
+            return None
+
+        # Just in case we get a new type of guest in the future
+        logger.critical(f"Balancing: Got unexpected guest type: {guest_meta.type}. Cannot proceed guest: {guest_meta.name}.")
+        assert_never(guest_meta.type)
+
+    def wait_for_rebalancing_job_slot(self, proxmox_api: ProxmoxApi, proxlb_data: ProxLbData, active_jobs: list[tuple[str, str, str, int]]) -> list[tuple[str, str, str, int]]:
+        """
+        Waits until at least one active rebalancing job finishes and returns the
+        jobs that still need to be watched.
+        """
+        while True:
+            running_jobs = []
+
+            for guest_name, node, job_id, retry_counter in active_jobs:
+                job_finished = self.get_rebalancing_job_status(
+                    proxmox_api, proxlb_data, guest_name, node, job_id, retry_counter, wait=False,
+                )
+
+                if job_finished is None:
+                    running_jobs.append((guest_name, node, job_id, retry_counter + 1))
+
+            if len(running_jobs) < len(active_jobs):
+                return running_jobs
+
+            time.sleep(10)
 
     def exec_rebalancing_vm(self, proxmox_api: ProxmoxApi, proxlb_data: ProxLbData, guest_name: str) -> Optional[str]:
         """
@@ -214,7 +231,7 @@ class Balancing:
         logger.debug("Finished: exec_rebalancing_ct.")
         return job_id
 
-    def get_rebalancing_job_status(self, proxmox_api: ProxmoxApi, proxlb_data: ProxLbData, guest_name: str, guest_current_node: str, job_id: str, retry_counter: int = 1) -> bool:
+    def get_rebalancing_job_status(self, proxmox_api: ProxmoxApi, proxlb_data: ProxLbData, guest_name: str, guest_current_node: str, job_id: str, retry_counter: int = 1, wait: bool = True) -> Optional[bool]:
         """
         Monitors the status of a rebalancing job on a Proxmox node until it completes or a timeout is reached.
 
@@ -227,51 +244,57 @@ class Balancing:
             retry_counter (int, optional): The current retry count. Defaults to 1.
 
         Returns:
-            bool: True if the job completed successfully, False otherwise.
+            Optional[bool]: True if the job completed successfully, False if it
+            failed or exceeded validation retries, None if it is still running
+            and wait is disabled.
         """
-        logger.debug("Starting: get_rebalancing_job_status.")
-        job = proxmox_api.nodes(guest_current_node).tasks(job_id).status().get()
+        while True:
+            logger.debug("Starting: get_rebalancing_job_status.")
+            job = proxmox_api.nodes(guest_current_node).tasks(job_id).status().get()
 
-        # Fetch actual migration job status if this got spawned by a HA job
-        if job["type"] == "hamigrate":
-            logger.debug(f"Balancing: Job ID {job_id} (guest: {guest_name}) is a HA migration job. Fetching underlying migration job...")
-            time.sleep(1)
-            vm_id = int(job["id"])
-            qm_migrate_jobs = proxmox_api.nodes(guest_current_node).tasks.get(typefilter="qmigrate", vmid=vm_id, start=0, source="active", limit=1)
+            # Fetch actual migration job status if this got spawned by a HA job
+            if job["type"] == "hamigrate":
+                logger.debug(f"Balancing: Job ID {job_id} (guest: {guest_name}) is a HA migration job. Fetching underlying migration job...")
+                time.sleep(1)
+                vm_id = int(job["id"])
+                qm_migrate_jobs = proxmox_api.nodes(guest_current_node).tasks.get(typefilter="qmigrate", vmid=vm_id, start=0, source="active", limit=1)
 
-            if len(qm_migrate_jobs) > 0:
-                job = qm_migrate_jobs[0]
-                job_id = job["upid"]
-                logger.debug(f'Overwriting job polling for: ID {job_id} (guest: {guest_name}) by {job}')
-        else:
-            logger.debug(f"Balancing: Job ID {job_id} (guest: {guest_name}) is a standard migration job. Proceeding with status check.")
-
-        # Watch job id until it finalizes
-        # Note: Unsaved jobs are delivered in uppercase from Proxmox API
-        if job.get("status", "").lower() == "running":
-            # Do not hammer the API while
-            # watching the job status
-            time.sleep(10)
-            retry_counter += 1
-
-            # Run recursion until we hit the soft-limit of maximum migration time for a guest
-            if retry_counter < proxlb_data.meta.balancing.max_job_validation:
-                logger.debug(f"Balancing: Job ID {job_id} (guest: {guest_name}) for migration is still running... (Run: {retry_counter})")
-                self.get_rebalancing_job_status(proxmox_api, proxlb_data, guest_name, guest_current_node, job_id, retry_counter)
+                if len(qm_migrate_jobs) > 0:
+                    job = qm_migrate_jobs[0]
+                    job_id = job["upid"]
+                    logger.debug(f'Overwriting job polling for: ID {job_id} (guest: {guest_name}) by {job}')
             else:
-                logger.warning(f"Balancing: Job ID {job_id} (guest: {guest_name}) for migration took too long. Please check manually.")
-                logger.debug("Finished: get_rebalancing_job_status.")
-                return False
+                logger.debug(f"Balancing: Job ID {job_id} (guest: {guest_name}) is a standard migration job. Proceeding with status check.")
 
-        # Validate job output for errors when finished
-        if job["status"] == "stopped":
+            # Watch job id until it finalizes
+            # Note: Unsaved jobs are delivered in uppercase from Proxmox API
+            if job.get("status", "").lower() == "running":
+                if retry_counter >= proxlb_data.meta.balancing.max_job_validation:
+                    logger.warning(f"Balancing: Job ID {job_id} (guest: {guest_name}) for migration took too long. Please check manually.")
+                    logger.debug("Finished: get_rebalancing_job_status.")
+                    return False
 
-            if job["exitstatus"] == "OK":
-                logger.debug(f"Balancing: Job ID {job_id} (guest: {guest_name}) was successfully.")
-                logger.debug("Finished: get_rebalancing_job_status.")
-                return True
-            else:
+                logger.debug(f"Balancing: Job ID {job_id} (guest: {guest_name}) for migration is still running... (Run: {retry_counter + 1})")
+                if not wait:
+                    logger.debug("Finished: get_rebalancing_job_status.")
+                    return None
+
+                # Do not hammer the API while watching the job status
+                time.sleep(10)
+                retry_counter += 1
+                continue
+
+            # Validate job output for errors when finished
+            if job["status"] == "stopped":
+
+                if job["exitstatus"] == "OK":
+                    logger.debug(f"Balancing: Job ID {job_id} (guest: {guest_name}) was successfully.")
+                    logger.debug("Finished: get_rebalancing_job_status.")
+                    return True
+
                 logger.critical(f"Balancing: Job ID {job_id} (guest: {guest_name}) went into an error! Please check manually.")
                 logger.debug("Finished: get_rebalancing_job_status.")
                 return False
-        return False
+
+            logger.debug("Finished: get_rebalancing_job_status.")
+            return False
