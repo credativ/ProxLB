@@ -1,3 +1,10 @@
+proxlb (2.1.0) stable; urgency=medium
+
+  * Fix streaming migration queue for parallel jobs. (Closes: #6)
+  * Add dynamic maintenance window support for nodes. (Closes: #42)
+
+ -- Florian Paul Azim Hoberg gyptazy <florian.hoberg@credativ.de>  Mon, 18 May 2026 06:51:13 +0200
+
 proxlb (2.0.1) stable; urgency=medium
 
   * Fix path to SSL CA bundle. (Closes: #91)

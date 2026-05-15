@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.1.0] - 2026-05-18
+
+### Added
+
+- Add dynamic maintenance window support for nodes (@gyptazy). [#42]
+
+### Fixed
+
+- Fix streaming migration queue in the balancing algorithm to correctly track in-flight
+  migration jobs up to the configured parallel job limit (@archandha). [#6]
+- Resolve an issue where the queue could stall or exit prematurely when all guests were
+  dispatched but not all migrations had finished (@archandha). [#6]
+- Ensure failed migrations are properly detected and reported instead of being silently
+  skipped during parallel execution (@archandha). [#6]
+
 ## [2.0.1] - 2026-05-04
 
 ### Fixed
