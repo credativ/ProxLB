@@ -19,6 +19,7 @@ from proxlb.utils.proxlb_data import ProxLbData
 from pydantic import BaseModel
 from enum import Enum
 from typing import Optional, assert_never
+from requests.exceptions import ConnectionError
 
 GuestType = Config.GuestType
 
@@ -313,7 +314,12 @@ class Balancing:
         Returns:
             bool: True if the job entered an error state (FAILED or timed out), False otherwise.
         """
-        status = Balancing._get_rebalancing_job_status(proxmox_api, job)
+        try:
+            time.sleep(0.1)
+            status = Balancing._get_rebalancing_job_status(proxmox_api, job)
+        except ConnectionError as exc:
+            logger.warning(str(exc))
+            status = None
         if status == Balancing.BalancingStatus.FINISHED:
             jobs_to_wait.remove(job)
             return False
