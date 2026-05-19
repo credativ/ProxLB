@@ -110,7 +110,7 @@ class Config(BaseModel):
         enforce_pinning: bool = False
         live: bool = True
         max_job_validation: int = 1800
-        max_node_inflow: Optional[int] = None
+        max_node_inflow: Optional[int] = 1
         memory_threshold: Optional[int] = None
         disk_threshold: Optional[int] = None
         method: "Config.Balancing.Resource" = Resource.Memory
