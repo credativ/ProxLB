@@ -315,6 +315,7 @@ class Balancing:
             bool: True if the job entered an error state (FAILED or timed out), False otherwise.
         """
         try:
+            time.sleep(0.1)
             status = Balancing._get_rebalancing_job_status(proxmox_api, job)
         except ConnectionError as exc:
             logger.warning(str(exc))
