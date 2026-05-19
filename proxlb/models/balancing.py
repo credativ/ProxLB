@@ -18,8 +18,13 @@ from proxlb.utils.config_parser import Config
 from proxlb.utils.proxlb_data import ProxLbData
 from pydantic import BaseModel
 from enum import Enum
-from typing import Optional, assert_never
+from typing import TYPE_CHECKING, Optional, assert_never
 from requests.exceptions import ConnectionError
+
+if TYPE_CHECKING:
+    from proxmoxer_types.v9.core import ProxmoxAPI
+    TaskListEntry = ProxmoxAPI.Nodes.Node.Tasks._Get.TypedDict
+    TaskStatus = ProxmoxAPI.Nodes.Node.Tasks.Upid.Status._Get.TypedDict
 
 GuestType = Config.GuestType
 
@@ -78,6 +83,8 @@ class Balancing:
         current_node: str
         job_id: str
         retry_counter: int = 0
+        resolved_job_id: Optional[str] = None
+        hamigrate_starttime: Optional[int] = None
 
     @staticmethod
     def balance(proxmox_api: ProxmoxApi, proxlb_data: ProxLbData) -> bool:
@@ -355,49 +362,103 @@ class Balancing:
             BalancingStatus: RUNNING, FINISHED, or FAILED.
         """
         logger.debug("Starting: _get_rebalancing_job_status.")
+
+        if job.resolved_job_id is not None:
+            task: 'TaskStatus' = proxmox_api.nodes(job.current_node).tasks(job.resolved_job_id).status().get()
+            return Balancing._interpret_task_status(task, job.resolved_job_id, job.name)
+
         task = proxmox_api.nodes(job.current_node).tasks(job.job_id).status().get()
-        job_id = job.job_id
 
-        # Fetch actual migration job status if this got spawned by a HA job
-        if task["type"] == "hamigrate":
+        if task["type"] != "hamigrate":
             logger.debug(
-                f"Balancing: Job ID {job.job_id} (guest: {job.name}) "
-                "is a HA migration job. Fetching underlying migration job...")
-            time.sleep(1)
-            vm_id = job.id
-            qm_migrate_jobs = proxmox_api.nodes(job.current_node).tasks.get(
-                typefilter="qmigrate", vmid=vm_id, start=0, source="active", limit=1)
-
-            if len(qm_migrate_jobs) > 0:
-                task = qm_migrate_jobs[0]
-                job_id = task["upid"]
-                logger.debug(f"Overwriting job polling for: ID {job_id} (guest: {job.name}) by {task}")
-        else:
-            logger.debug(
-                f"Balancing: Job ID {job_id} (guest: {job.name}) is a standard migration job. "
+                f"Balancing: Job ID {job.job_id} (guest: {job.name}) is a standard migration job. "
                 "Proceeding with status check.")
+            return Balancing._interpret_task_status(task, job.job_id, job.name)
 
-        # Note: unsaved jobs are delivered in uppercase from the Proxmox API
-        task_status = task.get("status", "").lower()
-        if task_status == "running":
-            logger.debug(f"Balancing: Job ID {job_id} (guest: {job.name}) for migration is still running...")
+        if task["status"] == "running":
+            logger.debug(
+                f"Balancing: HA migration request {job.job_id} (guest: {job.name}) "
+                "is still being processed by the HA manager...")
             return Balancing.BalancingStatus.RUNNING
 
-        if task_status == "stopped":
-            if task.get("exitstatus", "") == "OK":
-                logger.debug(f"Balancing: Job ID {job_id} (guest: {job.name}) was successfully.")
-                logger.debug("Finished: _get_rebalancing_job_status.")
-                return Balancing.BalancingStatus.FINISHED
-            else:
-                logger.critical(
-                    f"Balancing: Job ID {job_id} (guest: {job.name}) went into an error! "
-                    "Please check manually.")
-                logger.debug("Finished: _get_rebalancing_job_status.")
-                return Balancing.BalancingStatus.FAILED
+        if task.get("exitstatus") != "OK":
+            logger.critical(
+                f"Balancing: HA migration request {job.job_id} (guest: {job.name}) "
+                f"was rejected by the HA manager: {task.get('exitstatus')!r}. "
+                "Please check manually.")
+            return Balancing.BalancingStatus.FAILED
 
-        raise AssertionError(
-            f"Balancing: Unexpected status for Job ID {job_id} (guest: {job.name}): "
-            f"{task.get('status', '')}. Please check manually.")
+        if job.hamigrate_starttime is None:
+            job.hamigrate_starttime = task["starttime"]
+
+        qm_task = Balancing._find_qmigrate_task(proxmox_api, job)
+        if qm_task is None:
+            logger.debug(
+                f"Balancing: HA migration request {job.job_id} (guest: {job.name}) "
+                "was accepted but the underlying qmigrate task is not visible yet. Waiting...")
+            return Balancing.BalancingStatus.RUNNING
+
+        job.resolved_job_id = qm_task["upid"]
+        logger.debug(
+            f"Balancing: Resolved hamigrate {job.job_id} to qmigrate "
+            f"{job.resolved_job_id} for guest {job.name}.")
+
+        task = proxmox_api.nodes(job.current_node).tasks(job.resolved_job_id).status().get()
+        return Balancing._interpret_task_status(task, job.resolved_job_id, job.name)
+
+    @staticmethod
+    def _find_qmigrate_task(
+            proxmox_api: ProxmoxApi,
+            job: 'Balancing.RebalancingJob',
+    ) -> Optional['TaskListEntry']:
+        """
+        Looks up the qmigrate task spawned by the HA manager for this job's VM.
+
+        Args:
+            proxmox_api (ProxmoxApi): The Proxmox API client instance.
+            job (RebalancingJob): The job whose qmigrate task to find.
+
+        Returns:
+            Optional[TaskListEntry]: The matching task entry (its ``upid`` field
+            is pinned onto the job by the caller) or None if the qmigrate has not
+            appeared yet.
+        """
+        vmid_str = str(job.id)
+        starttime = job.hamigrate_starttime or 0
+
+        qm_migrate_jobs: list['TaskListEntry'] = proxmox_api.nodes(job.current_node).tasks.get(
+            typefilter="qmigrate",
+            vmid=job.id,
+            since=starttime,
+            source="all",
+            start=0,
+            limit=10,
+        )
+        for candidate in qm_migrate_jobs:
+            if candidate["id"] == vmid_str and candidate["starttime"] >= starttime:
+                return candidate
+        return None
+
+    @staticmethod
+    def _interpret_task_status(
+            task: 'TaskStatus',
+            job_id: str,
+            guest_name: str,
+    ) -> 'Balancing.BalancingStatus':
+        if task["status"] == "running":
+            logger.debug(f"Balancing: Job ID {job_id} (guest: {guest_name}) for migration is still running...")
+            return Balancing.BalancingStatus.RUNNING
+
+        if task.get("exitstatus") == "OK":
+            logger.debug(f"Balancing: Job ID {job_id} (guest: {guest_name}) was successfully.")
+            logger.debug("Finished: _get_rebalancing_job_status.")
+            return Balancing.BalancingStatus.FINISHED
+
+        logger.critical(
+            f"Balancing: Job ID {job_id} (guest: {guest_name}) went into an error! "
+            "Please check manually.")
+        logger.debug("Finished: _get_rebalancing_job_status.")
+        return Balancing.BalancingStatus.FAILED
 
     @staticmethod
     def get_parallel_job_limit(proxlb_data_meta_balancing: ProxLbData.Meta.Balancing) -> int:
