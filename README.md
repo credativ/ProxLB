@@ -344,6 +344,7 @@ The following options can be set in the configuration file `proxlb.yaml`:
 |  | pools |  | pools: { dev: { type: affinity }, de-nbg01-db: { type: anti-affinity }} | `Dict` | A dict of pool names and their type for creating affinity/anti-affinity rules |
 | `service` |  |  |  |  |  |
 |  | daemon |  | True | `Bool` | If daemon mode should be activated. |
+|  | enable_ha |  | False | `Bool` | Enables HA mode of ProxLB. |
 |  | `schedule` |  |  | `Dict` | Schedule config block for rebalancing. |
 |  |  | interval | 12 | `Int` | How often rebalancing should occur in daemon mode.|
 |  |  | format | hours | `Str` | Sets the time format. [values: `hours` (default), `minutes`]|
@@ -442,6 +443,7 @@ balancing:
 
 service:
   daemon: True
+  enable_ha: False
   schedule:
     interval: 12
     format: hours

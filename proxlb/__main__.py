@@ -30,6 +30,7 @@ from proxlb.models.calculations import Calculations
 from proxlb.models.balancing import Balancing
 from proxlb.models.pools import Pools
 from proxlb.models.ha_rules import HaRules
+from proxlb.models.ha_status import HaStatus
 from proxlb.utils.helper import Helper
 from proxlb.utils.proxlb_data import ProxLbData
 
@@ -64,6 +65,7 @@ proxmox_api = ProxmoxApi(proxlb_config)
 
 # Overwrite password after creating the API object
 proxlb_config.proxmox_api.password = "********"
+proxlb_config.proxmox_api.token_secret = "********"
 
 
 def reinstall_sigint() -> None:
@@ -80,6 +82,15 @@ def reinstall_sigint() -> None:
 
 
 while True:
+
+    # Validate if HA mode is enabled and if this node is the HA manager.
+    if proxlb_config.service.enable_ha:
+        if not HaStatus.is_node_ha_manager(proxmox_api):
+            logger.info("This node is not the HA manager. Waiting for next run.")
+            Helper.get_daemon_mode(proxlb_config)
+            continue
+        else:
+            logger.debug("This node is the HA manager. Continuing.")
 
     # Validate if reload signal was sent during runtime
     # and reload the ProxLB configuration and adjust log level

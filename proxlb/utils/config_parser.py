@@ -166,6 +166,7 @@ class Config(BaseModel):
                 return f"{self.interval} {self.format}"
 
         daemon: bool = True
+        enable_ha: bool = False
         delay: Delay = Delay()
         log_level: "Config.Service.LogLevel" = LogLevel.INFO
         schedule: Schedule = Schedule()

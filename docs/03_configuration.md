@@ -24,6 +24,7 @@
         1. [Used Resources](#used-resources)
         2. [Assigned Resources](#assigned-resources)
         3. [Pressure (PSI) based Resources](#pressure-psi-based-resources)
+    11. [HA-Mode (ProxLB)](#ha-mode)
 
 ## Authentication / User Accounts / Permissions
 ### Authentication
@@ -388,4 +389,28 @@ balancing:
         pressure_full: 0.20
         pressure_some: 0.20
         pressure_spikes: 1.00
+```
+
+### 11. HA-Mode
+ProxLB can operate in High Availability mode on Proxmox VE clusters. When enabled, ProxLB only runs on the node currently elected as the Proxmox VE HA Manager. All other nodes remain passive. Currently, this feature is limited to setups where ProxLB is directly installed on Proxmox VE nodes and does not support Docker or installations where ProxLB is not running on PVE nodes.
+
+Before each execution, ProxLB verifies whether the local node is the active HA Manager. If not, the run is skipped automatically. This ensures:
+
+- A single active ProxLB instance per cluster
+- Automatic failover during HA Manager elections
+- No duplicate or conflicting load balancer updates
+
+#### Requirements
+
+- Proxmox VE **8.4 or newer**
+- HA services enabled and configured within the cluster
+- ProxLB installed on all nodes that may become HA Manager
+    - HA is **only** supported when running on Proxmox VE nodes!
+
+#### Configuration
+Make sure to enable the HA mode on all instances to avoid parallel evaluations on different nodes!
+
+```yaml
+service:
+  enable_ha: true
 ```

@@ -88,6 +88,7 @@ balancing:
 
 service:
   daemon: True
+  enable_ha: True                     # Run ProxLB in HA mode using shared state in Proxmox cluster (requires Proxmox VE 8.4+)
   schedule:
     interval: 12
     format: hours
