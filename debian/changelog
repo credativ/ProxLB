@@ -1,3 +1,10 @@
+proxlb (2.2.0) stable; urgency=medium
+
+  * Add HA mode support to ProxLB. (Closes: #11)
+  * Replace API secret at runtime for security reasons.
+
+ -- Florian Paul Azim Hoberg gyptazy <florian.hoberg@credativ.de>  Wed, 10 Jun 2026 07:51:13 +0200
+
 proxlb (2.1.1) stable; urgency=medium
 
   * Make max_node_inflow compatible with current solver

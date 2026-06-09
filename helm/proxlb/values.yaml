@@ -1,7 +1,7 @@
 image:
   registry: ghcr.io
   repository: credativ/proxlb
-  tag: v2.1.1
+  tag: v2.2.0
   pullPolicy: IfNotPresent
   imagePullSecrets: [ ]
 
@@ -55,6 +55,7 @@ configmap:
       mode: used
     service:
       daemon: True
+      enable_ha: False
       schedule:
         interval: 12
         format: "hours"
