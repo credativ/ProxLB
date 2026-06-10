@@ -1,10 +1,14 @@
+from pathlib import Path
 from setuptools import setup
+
+long_description = (Path(__file__).parent / 'README.md').read_text(encoding='utf-8')
 
 setup(
     name="proxlb",
     version="2.2.0",
     description="An advanced resource scheduler and load balancer for Proxmox clusters.",
-    long_description="An advanced resource scheduler and load balancer for Proxmox clusters that also supports maintenance modes and affinity/anti-affinity rules.",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     author="Florian Paul Azim Hoberg",
     author_email="gyptazy@gyptazy.com",
     maintainer="credativ GmbH",
