@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from proxmoxer_types.v9.core import ProxmoxAPI
     TaskListEntry = ProxmoxAPI.Nodes.Node.Tasks._Get.TypedDict
     TaskStatus = ProxmoxAPI.Nodes.Node.Tasks.Upid.Status._Get.TypedDict
+    Storages = list[ProxmoxAPI.Nodes.Node.Storage._Get.TypedDict]
 
 GuestType = Config.GuestType
 
@@ -233,7 +234,7 @@ class Balancing:
             return None
 
         try:
-            storages = proxmox_api.nodes(target_node).storage.get()
+            storages: 'Storages' = proxmox_api.nodes(target_node).storage.get()
         except proxmoxer.core.ResourceException as proxmox_api_error:
             logger.debug(
                 f"Balancing: could not enumerate storages on node {target_node}: "
@@ -242,9 +243,9 @@ class Balancing:
 
         candidates = [
             storage for storage in storages
-            if int(storage.get("active", 0)) == 1
-            and int(storage.get("enabled", 1)) == 1
-            and content in (storage.get("content") or "")
+            if storage.get("active", 0) == 1
+            and storage.get("enabled", 1) == 1
+            and content in storage.get("content", "").split(",")
             and storage.get("avail") is not None
         ]
         if not candidates:
@@ -253,10 +254,10 @@ class Balancing:
                 f"{target_node}; keeping source storage id.")
             return None
 
-        target_storage = max(candidates, key=lambda storage: int(storage.get("avail", 0)))
+        target_storage = max(candidates, key=lambda storage: storage.get("avail") or 0)
         logger.debug(
             f"Balancing: selected target storage '{target_storage['storage']}' on node "
-            f"{target_node} ({int(target_storage.get('avail', 0)) // (1024 ** 3)} GiB free).")
+            f"{target_node} ({(target_storage.get('avail') or 0) // (1024 ** 3)} GiB free).")
         return target_storage["storage"]
 
     @staticmethod
