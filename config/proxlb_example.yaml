@@ -35,6 +35,8 @@ balancing:
   with_conntrack_state: True
   # Target storage remapping for node-local (non-shared) storage clusters, where
   # the source storage id may not exist on the target node. Disabled by default.
+  # Note: HA-managed guests are skipped when a remap would apply, because the
+  # Proxmox HA stack does not forward the target storage to the migration task.
   target_storage_auto: False          # Auto-pick the target-node storage with the most free space
   # target_storage_map:               # Optional: pin a storage per target node (overrides auto)
   #   pve5: local

@@ -331,8 +331,8 @@ The following options can be set in the configuration file `proxlb.yaml`:
 |  | live |  | True | `Bool` | If guests should be moved live or shutdown.|
 |  | with_local_disks |  | True | `Bool` | If balancing of guests should include local disks.|
 |  | with_conntrack_state |  | True | `Bool` | If balancing of guests should including the conntrack state.|
-|  | target_storage_auto |  | False | `Bool` | For node-local (non-shared) storage clusters: auto-pick a storage on the target node (most free space, matching content type) when the source storage id does not exist there.|
-|  | target_storage_map |  |  | `Dict` | Optional mapping of target node name to storage id, overriding `target_storage_auto`. e.g. `{pve5: local}`.|
+|  | target_storage_auto |  | False | `Bool` | For node-local (non-shared) storage clusters: auto-pick a storage on the target node (most free space, matching content type) when the source storage id does not exist there. Note: HA-managed guests are skipped when a remap would apply, because Proxmox HA migrations do not honor a target storage.|
+|  | target_storage_map |  |  | `Dict` | Optional mapping of target node name to storage id, overriding `target_storage_auto`. e.g. `{pve5: local}`. The HA-managed guest limitation of `target_storage_auto` applies here as well.|
 |  | balance_types |  | ['vm', 'ct'] | `List` | Defined the types of guests that should be honored. [values: `vm`, `ct`]|
 |  | max_job_validation |  | 1800 | `Int` | How long a job validation may take in seconds. (default: 1800) |
 |  | balanciness |  | 10 | `Int` | The maximum delta of resource usage between node with highest and lowest usage. |
