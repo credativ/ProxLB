@@ -109,6 +109,7 @@ def _make_guest(
         cpu=cpu,
         memory=mem,
         disk=disk,
+        ha_managed=False,
     )
 
 

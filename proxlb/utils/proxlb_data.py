@@ -81,6 +81,10 @@ class ProxLbData(BaseModel):
         node_relationships: list[str]
         node_relationships_strict: bool
         type: GuestType
+        # True when the guest is managed by the Proxmox HA stack
+        # (/cluster/ha/resources). HA-routed migrations do not forward a
+        # target storage parameter, so such guests cannot be remapped.
+        ha_managed: bool
 
         def metric(self, name: BalancingResource) -> Metric:
             if name == BalancingResource.Cpu:

@@ -16,6 +16,7 @@ from proxlb.utils.proxlb_data import ProxLbData
 from proxlb.utils.rrd import GuestRrdKey, RrdDatasets
 from proxlb.models.pools import Pools
 from proxlb.models.ha_rules import HaRules
+from proxlb.models.ha_status import HaStatus
 from proxlb.models.tags import Tags
 import time
 
@@ -67,6 +68,7 @@ class Guests:
         """
         logger.debug("Starting: get_guests.")
         guests: Dict[str, ProxLbData.Guest] = {}
+        ha_managed_sids = HaStatus.get_ha_managed_sids(proxmox_api)
 
         # Guest objects are always only in the scope of a node.
         # Therefore, we need to iterate over all nodes to get all guests.
@@ -126,6 +128,7 @@ class Guests:
                         node_relationships=Tags.get_node_relationships(guest_tags, nodes, guest_pools, guest_ha_rules, proxlb_config),
                         node_relationships_strict=Pools.get_pool_node_affinity_strictness(proxlb_config, guest_pools),
                         type=GuestType.Vm,
+                        ha_managed=f"vm:{guest['vmid']}" in ha_managed_sids,
                     )
 
                     logger.debug(f"Resources of Guest {guest['name']} (type VM) added: {guests[guest['name']]}")
@@ -186,6 +189,7 @@ class Guests:
                         node_relationships=Tags.get_node_relationships(guest_tags, nodes, guest_pools, guest_ha_rules, proxlb_config),
                         node_relationships_strict=Pools.get_pool_node_affinity_strictness(proxlb_config, guest_pools),
                         type=GuestType.Ct,
+                        ha_managed=f"ct:{guest['vmid']}" in ha_managed_sids,
                     )
 
                     logger.debug(f"Resources of Guest {guest['name']} (type CT) added: {guests[guest['name']]}")

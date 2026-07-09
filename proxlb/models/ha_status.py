@@ -66,6 +66,34 @@ class HaStatus:
         return str(ha_master_node)
 
     @staticmethod
+    def get_ha_managed_sids(proxmox_api: ProxmoxApi) -> set[str]:
+        """
+        Retrieve the service ids of all HA-managed resources in the cluster.
+
+        Queries /cluster/ha/resources and returns the sids (e.g. 'vm:100',
+        'ct:101'). An API error safely degrades to an empty set, i.e. no
+        guest is considered HA-managed.
+
+        Args:
+            proxmox_api (ProxmoxApi): Proxmox API client instance.
+
+        Returns:
+            set[str]: The sids of all HA-managed resources.
+        """
+        logger.debug("Starting: get_ha_managed_sids.")
+
+        try:
+            ha_resources = proxmox_api.cluster.ha.resources.get()
+        except Exception as proxmox_api_error:
+            logger.error(f"Failed to list HA resources: {proxmox_api_error}. Treating all guests as not HA-managed.")
+            return set()
+
+        ha_managed_sids = {str(resource["sid"]) for resource in ha_resources if resource.get("sid")}
+        logger.debug(f"HA-managed sids: {ha_managed_sids}")
+        logger.debug("Finished: get_ha_managed_sids.")
+        return ha_managed_sids
+
+    @staticmethod
     def is_node_ha_manager(proxmox_api: ProxmoxApi) -> bool:
         """
         Check if the local executing node is the HA manager.

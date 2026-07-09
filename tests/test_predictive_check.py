@@ -97,6 +97,7 @@ def _make_guest(name: str, node: str, memory_gb: float) -> ProxLbData.Guest:
         cpu=cpu,
         memory=mem,
         disk=disk,
+        ha_managed=False,
     )
 
 

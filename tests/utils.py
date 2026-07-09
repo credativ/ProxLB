@@ -63,4 +63,5 @@ def create_guest(name: str, node_current: str, node_target: str) -> ProxLbData.G
         node_relationships=[],
         node_relationships_strict=False,
         type=Config.GuestType.Vm,
+        ha_managed=False,
     )
