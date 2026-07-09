@@ -117,7 +117,7 @@ class Guests:
                         ha_rules=guest_ha_rules,
                         affinity_groups=Tags.get_affinity_groups(guest_tags, guest_pools, guest_ha_rules, proxlb_config),
                         anti_affinity_groups=Tags.get_anti_affinity_groups(guest_tags, guest_pools, guest_ha_rules, proxlb_config),
-                        ignore=Tags.get_ignore(guest_tags),
+                        ignore=Tags.get_ignore(guest_tags) or Guests.get_ignore_by_name(guest['name'], proxlb_config),
                         node_relationships=Tags.get_node_relationships(guest_tags, nodes, guest_pools, guest_ha_rules, proxlb_config),
                         node_relationships_strict=Pools.get_pool_node_affinity_strictness(proxlb_config, guest_pools),
                         type=GuestType.Vm,
@@ -176,7 +176,7 @@ class Guests:
                         ha_rules=guest_ha_rules,
                         affinity_groups=Tags.get_affinity_groups(guest_tags, guest_pools, guest_ha_rules, proxlb_config),
                         anti_affinity_groups=Tags.get_anti_affinity_groups(guest_tags, guest_pools, guest_ha_rules, proxlb_config),
-                        ignore=Tags.get_ignore(guest_tags),
+                        ignore=Tags.get_ignore(guest_tags) or Guests.get_ignore_by_name(guest['name'], proxlb_config),
                         node_relationships=Tags.get_node_relationships(guest_tags, nodes, guest_pools, guest_ha_rules, proxlb_config),
                         node_relationships_strict=Pools.get_pool_node_affinity_strictness(proxlb_config, guest_pools),
                         type=GuestType.Ct,
@@ -188,6 +188,33 @@ class Guests:
 
         logger.debug("Finished: get_guests.")
         return guests
+
+    @staticmethod
+    def get_ignore_by_name(name: str, proxlb_config: Config) -> bool:
+        """
+        Check whether a guest should be ignored based on its name.
+
+        This method checks whether the given guest name appears in the
+        ignore_guests list defined in the ProxLB balancing configuration.
+        It is the config-file counterpart to the tag-based ignore mechanism
+        (plb_ignore_* tags) and allows ignoring guests that cannot be tagged.
+
+        Args:
+            name (str):                         The name of the guest VM or CT.
+            proxlb_config (Config):             The ProxLB configuration object.
+
+        Returns:
+            bool:                               True if the guest name is listed in ignore_guests, False otherwise.
+        """
+        logger.debug("Starting: get_ignore_by_name.")
+
+        ignore = name in proxlb_config.balancing.ignore_guests
+
+        if ignore:
+            logger.debug(f"Guest {name} is listed in ignore_guests and will not be rebalanced.")
+
+        logger.debug("Finished: get_ignore_by_name.")
+        return ignore
 
     @staticmethod
     def get_guest_rrd_data(proxmox_api: ProxmoxApi, node_name: str, vm_id: int, vm_name: str, object_name: str, object_type: Optional[str], spikes: bool = False) -> float:
