@@ -130,6 +130,50 @@ class ProxLbData(BaseModel):
         name: str
         members: list[str] = []
 
+    class Storage(BaseModel):
+        """
+        A storage entity from the cluster-wide storage configuration.
+
+        Storage ids are cluster-global: a non-shared storage (e.g. 'local')
+        is one definition instantiated independently on every node listed in
+        'nodes', while a shared storage is a single instance visible from all
+        of them. The per-node status therefore carries identical numbers for
+        shared storages and independent capacities for local ones.
+        """
+        class NodeStatus(BaseModel):
+            total: int = 0
+            used: int = 0
+            avail: int = 0
+            active: bool = False
+            enabled: bool = True
+
+        class GuestDisks(BaseModel):
+            # Bytes actually consumed ('used' where the storage reports it,
+            # provisioned size otherwise — on thick storages the two
+            # coincide).
+            allocated: int = 0
+            # Configured upper bound: the sum of the volume sizes.
+            provisioned: int = 0
+
+        name: str
+        type: str
+        # Proxmox trusts this configuration flag to decide whether a
+        # migration needs to copy disks; consumers should do the same.
+        shared: bool = False
+        content: list[str] = []
+        # Per-node availability and capacity. Note that storages restricted
+        # to specific nodes (config 'nodes' option) still appear in the other
+        # nodes' listings with zeroed capacity and active/enabled False, so
+        # consumers must filter on those flags, not on key presence.
+        nodes: dict[str, NodeStatus] = {}
+        # Disk bytes of each guest on this storage, keyed by guest id (the
+        # Proxmox 'vmid'; VMs and CTs share one id namespace), summed over
+        # all 'images' (VM) and 'rootdir' (CT) volumes owned by that guest.
+        # For non-shared storages the sums span all node instances, so
+        # leftover volumes on other nodes are (conservatively) attributed
+        # as well.
+        guest_disks: dict[int, GuestDisks] = {}
+
     class HaRule(BaseModel):
         rule: str
         type: AffinityType
