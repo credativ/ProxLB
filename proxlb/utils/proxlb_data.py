@@ -81,6 +81,13 @@ class ProxLbData(BaseModel):
         node_relationships: list[str]
         node_relationships_strict: bool
         type: GuestType
+        # Disk bytes attributed to this guest per storage id, from the storage
+        # content listings (actual allocation where the storage reports it,
+        # provisioned size otherwise). Unlike the 'disk' metric above this is
+        # populated for QEMU guests as well and carries the storage id, so
+        # consumers can distinguish shared from node-local volumes via
+        # ProxLbData.storage. Empty when storage collection is unavailable.
+        disks: dict[str, int]
         # True when the guest is managed by the Proxmox HA stack
         # (/cluster/ha/resources). HA-routed migrations do not forward a
         # target storage parameter, so such guests cannot be remapped.
@@ -186,3 +193,4 @@ class ProxLbData(BaseModel):
     meta: Meta
     nodes: dict[str, Node]
     pools: dict[str, Pool]
+    storage: dict[str, Storage]

@@ -109,6 +109,7 @@ def _make_guest(
         cpu=cpu,
         memory=mem,
         disk=disk,
+        disks={},
         ha_managed=False,
     )
 
@@ -165,6 +166,7 @@ def _build_stacking_scenario() -> ProxLbData:
         ha_rules={},
         nodes=nodes,
         pools={},
+        storage={},
         groups=ProxLbData.Groups(affinity=affinity),
         meta=ProxLbData.Meta(
             proxmox_api=Config.ProxmoxAPI(hosts=[], user=""),
@@ -289,6 +291,7 @@ def test_real_world_scenario() -> None:
         ha_rules={},
         nodes=nodes,
         pools={},
+        storage={},
         groups=ProxLbData.Groups(affinity=affinity),
         meta=ProxLbData.Meta(
             proxmox_api=Config.ProxmoxAPI(hosts=[], user=""),
