@@ -535,6 +535,17 @@ plb_ignore_dev
 
 As a result, ProxLB will not migrate this guest with the `plb_ignore_dev` tag to any other node.
 
+#### Ignoring VMs by Name via Configuration
+Guests can also be ignored by name directly in the ProxLB configuration file. This is useful for automatically provisioned VMs or CTs that cannot have tags assigned themselves.
+
+**Example Config**
+```yaml
+balancing:
+  ignore_guests: ['my-auto-vm-01', 'my-auto-vm-02']
+```
+
+As a result, ProxLB will not migrate any guest whose name appears in the `ignore_guests` list.
+
 **Note:** Ignored guests are really ignored. Even by enforcing affinity rules this guest will be ignored.
 
 ### Pin VMs to Specific Hypervisor Nodes
