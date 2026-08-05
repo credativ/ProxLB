@@ -1,0 +1,9 @@
+fixed:
+- Reduce RRD metrics collection time by no longer querying the same rrddata
+  endpoint once per individual metric; a single AVERAGE and a single MAX
+  request per guest/node already contain all cpu, memory, disk and pressure
+  (PSI) values, cutting RRD API calls per guest from 13 to 2 and per node
+  from 12 to 2 (@archandha). [#122]
+- Fix CT (LXC) guests being queried via the qemu API endpoint instead of the
+  lxc endpoint when collecting RRD data, which silently returned 0.0 for all
+  CT pressure/usage metrics (@archandha). [#122]
