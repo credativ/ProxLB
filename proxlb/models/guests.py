@@ -8,7 +8,7 @@ __copyright__ = "Copyright (C) 2025 Florian Paul Azim Hoberg (@gyptazy)"
 __license__ = "GPL-3.0"
 
 
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 from proxlb.utils.logger import SystemdLogger
 from proxlb.utils.proxmox_api import ProxmoxApi
 from proxlb.utils.config_parser import Config
@@ -192,7 +192,7 @@ class Guests:
         return guests
 
     @staticmethod
-    def get_guest_rrd_datasets(proxmox_api: ProxmoxApi, node_name: str, vm_id: int, vm_name: str, guest_type: Config.GuestType) -> tuple:
+    def get_guest_rrd_datasets(proxmox_api: ProxmoxApi, node_name: str, vm_id: int, vm_name: str, guest_type: Config.GuestType) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]]]:
         """
         Fetches the RRD data for a guest VM or CT once, covering both the average and
         maximum (spike) consolidation functions.
@@ -240,7 +240,7 @@ class Guests:
         return rrd_average, rrd_max
 
     @staticmethod
-    def get_guest_rrd_value(rrd_average: list, rrd_max: list, vm_name: str, object_name: str, object_type: Optional[str], spikes: bool = False) -> float:
+    def get_guest_rrd_value(rrd_average: list[Dict[str, Any]], rrd_max: list[Dict[str, Any]], vm_name: str, object_name: str, object_type: Optional[str], spikes: bool = False) -> float:
         """
         Derives a single rrd data metric (CPU, memory, disk usage or pressure) of a guest
         VM or CT from the datasets already fetched via get_guest_rrd_datasets(). This
@@ -271,7 +271,7 @@ class Guests:
                 # RRD data is collected every minute, so we look at the last 6 entries
                 # and take the maximum value to represent the spike
                 logger.debug(f"Getting RRD data (spike: {spikes}) of pressure for {object_name} {object_type} from guest: {vm_name}.")
-                _rrd_data_value = [row.get(lookup_key) for row in guest_data_rrd if row.get(lookup_key) is not None]
+                _rrd_data_value = [row[lookup_key] for row in guest_data_rrd if row.get(lookup_key) is not None]
                 rrd_data_value = max(_rrd_data_value[-6:], default=0.0)
             else:
                 # Calculate the average value from the RRD data entries

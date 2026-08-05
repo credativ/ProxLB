@@ -22,7 +22,7 @@ __license__ = "GPL-3.0"
 
 
 import time
-from typing import Dict
+from typing import Any, Dict
 from proxlb.utils.config_parser import Config
 from proxlb.utils.logger import SystemdLogger
 from proxlb.utils.proxlb_data import ProxLbData
@@ -197,7 +197,7 @@ class Nodes:
         return False
 
     @staticmethod
-    def get_node_rrd_datasets(proxmox_api: ProxmoxApi, node_name: str) -> tuple:
+    def get_node_rrd_datasets(proxmox_api: ProxmoxApi, node_name: str) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]]]:
         """
         Fetches the RRD data for a node once, covering both the average and maximum
         (spike) consolidation functions.
@@ -237,7 +237,7 @@ class Nodes:
         return rrd_average, rrd_max
 
     @staticmethod
-    def get_node_rrd_value(rrd_average: list, rrd_max: list, node_name: str, object_name: str, object_type: str, spikes: bool = False) -> float:
+    def get_node_rrd_value(rrd_average: list[Dict[str, Any]], rrd_max: list[Dict[str, Any]], node_name: str, object_name: str, object_type: str, spikes: bool = False) -> float:
         """
         Derives a single rrd data metric (CPU, memory, disk pressure) of a node from the
         datasets already fetched via get_node_rrd_datasets(). This performs no API call
@@ -267,7 +267,7 @@ class Nodes:
             # RRD data is collected every minute, so we look at the last 6 entries
             # and take the maximum value to represent the spike
             rrd_data_value = max(
-                [row.get(lookup_key) for row in node_data_rrd if row.get(lookup_key) is not None][-6:],
+                [row[lookup_key] for row in node_data_rrd if row.get(lookup_key) is not None][-6:],
                 default=0.0,
             )
         else:
