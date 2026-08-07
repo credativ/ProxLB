@@ -7,3 +7,8 @@ fixed:
 - Fix CT (LXC) guests being queried via the qemu API endpoint instead of the
   lxc endpoint when collecting RRD data, which silently returned 0.0 for all
   CT pressure/usage metrics (@archandha). [#122]
+- Type the rrddata responses via proxmoxer-stubs so that RRD field names are
+  checked against the fields Proxmox actually reports.
+- Fix disk pressure being read from a non-existing 'pressuredisk{some,full}'
+  RRD field, which silently returned 0.0 for nodes and guests alike. Proxmox
+  reports this as io pressure, so 'pressureio{some,full}' is read instead.

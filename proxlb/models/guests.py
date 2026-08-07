@@ -8,15 +8,19 @@ __copyright__ = "Copyright (C) 2025 Florian Paul Azim Hoberg (@gyptazy)"
 __license__ = "GPL-3.0"
 
 
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Dict
 from proxlb.utils.logger import SystemdLogger
 from proxlb.utils.proxmox_api import ProxmoxApi
 from proxlb.utils.config_parser import Config
 from proxlb.utils.proxlb_data import ProxLbData
+from proxlb.utils.rrd import GuestRrdKey, RrdDatasets
 from proxlb.models.pools import Pools
 from proxlb.models.ha_rules import HaRules
 from proxlb.models.tags import Tags
 import time
+
+if TYPE_CHECKING:
+    from proxlb.utils.rrd import GuestRrdDatasets
 
 GuestType = Config.GuestType
 
@@ -77,35 +81,35 @@ class Guests:
                     guest_tags = Tags.get_tags_from_guests(proxmox_api, node, guest['vmid'], GuestType.Vm)
                     guest_pools = Pools.get_pools_for_guest(guest['name'], pools)
                     guest_ha_rules = HaRules.get_ha_rules_for_guest(guest['name'], ha_rules, guest['vmid'])
-                    guest_rrd_average, guest_rrd_max = Guests.get_guest_rrd_datasets(proxmox_api, node, guest['vmid'], guest['name'], GuestType.Vm)
+                    guest_rrd = Guests.get_guest_rrd_datasets(proxmox_api, node, guest['vmid'], guest['name'], GuestType.Vm)
 
                     guests[guest['name']] = ProxLbData.Guest(
                         name=guest['name'],
                         cpu=ProxLbData.Guest.Metric(
                             total=int(guest['cpus']),
-                            used=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'cpu', None),
-                            pressure_some_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'cpu', 'some'),
-                            pressure_full_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'cpu', 'full'),
-                            pressure_some_spikes_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'cpu', 'some', spikes=True),
-                            pressure_full_spikes_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'cpu', 'full', spikes=True),
+                            used=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'cpu'),
+                            pressure_some_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurecpusome'),
+                            pressure_full_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurecpufull'),
+                            pressure_some_spikes_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurecpusome', spikes=True),
+                            pressure_full_spikes_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurecpufull', spikes=True),
                             pressure_hot=False,
                         ),
                         disk=ProxLbData.Guest.Metric(
                             total=guest['maxdisk'],
                             used=guest['disk'],
-                            pressure_some_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'disk', 'some'),
-                            pressure_full_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'disk', 'full'),
-                            pressure_some_spikes_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'disk', 'some', spikes=True),
-                            pressure_full_spikes_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'disk', 'full', spikes=True),
+                            pressure_some_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressureiosome'),
+                            pressure_full_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressureiofull'),
+                            pressure_some_spikes_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressureiosome', spikes=True),
+                            pressure_full_spikes_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressureiofull', spikes=True),
                             pressure_hot=False,
                         ),
                         memory=ProxLbData.Guest.Metric(
                             total=guest['maxmem'],
                             used=guest['mem'],
-                            pressure_some_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'memory', 'some'),
-                            pressure_full_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'memory', 'full'),
-                            pressure_some_spikes_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'memory', 'some', spikes=True),
-                            pressure_full_spikes_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'memory', 'full', spikes=True),
+                            pressure_some_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurememorysome'),
+                            pressure_full_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurememoryfull'),
+                            pressure_some_spikes_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurememorysome', spikes=True),
+                            pressure_full_spikes_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurememoryfull', spikes=True),
                             pressure_hot=False,
                         ),
                         id=guest['vmid'],
@@ -137,34 +141,34 @@ class Guests:
                     guest_tags = Tags.get_tags_from_guests(proxmox_api, node, guest['vmid'], GuestType.Ct)
                     guest_pools = Pools.get_pools_for_guest(guest['name'], pools)
                     guest_ha_rules = HaRules.get_ha_rules_for_guest(guest['name'], ha_rules, guest['vmid'])
-                    guest_rrd_average, guest_rrd_max = Guests.get_guest_rrd_datasets(proxmox_api, node, guest['vmid'], guest['name'], GuestType.Ct)
+                    guest_rrd = Guests.get_guest_rrd_datasets(proxmox_api, node, guest['vmid'], guest['name'], GuestType.Ct)
 
                     guests[guest['name']] = ProxLbData.Guest(
                         cpu=ProxLbData.Guest.Metric(
                             total=int(guest['cpus']),
-                            used=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'cpu', None),
-                            pressure_some_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'cpu', 'some'),
-                            pressure_full_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'cpu', 'full'),
-                            pressure_some_spikes_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'cpu', 'some', spikes=True),
-                            pressure_full_spikes_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'cpu', 'full', spikes=True),
+                            used=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'cpu'),
+                            pressure_some_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurecpusome'),
+                            pressure_full_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurecpufull'),
+                            pressure_some_spikes_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurecpusome', spikes=True),
+                            pressure_full_spikes_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurecpufull', spikes=True),
                             pressure_hot=False,
                         ),
                         disk=ProxLbData.Guest.Metric(
                             total=guest['maxdisk'],
                             used=guest['disk'],
-                            pressure_some_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'disk', 'some'),
-                            pressure_full_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'disk', 'full'),
-                            pressure_some_spikes_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'disk', 'some', spikes=True),
-                            pressure_full_spikes_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'disk', 'full', spikes=True),
+                            pressure_some_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressureiosome'),
+                            pressure_full_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressureiofull'),
+                            pressure_some_spikes_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressureiosome', spikes=True),
+                            pressure_full_spikes_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressureiofull', spikes=True),
                             pressure_hot=False,
                         ),
                         memory=ProxLbData.Guest.Metric(
                             total=guest['maxmem'],
                             used=guest['mem'],
-                            pressure_some_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'memory', 'some'),
-                            pressure_full_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'memory', 'full'),
-                            pressure_some_spikes_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'memory', 'some', spikes=True),
-                            pressure_full_spikes_percent=Guests.get_guest_rrd_value(guest_rrd_average, guest_rrd_max, guest['name'], 'memory', 'full', spikes=True),
+                            pressure_some_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurememorysome'),
+                            pressure_full_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurememoryfull'),
+                            pressure_some_spikes_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurememorysome', spikes=True),
+                            pressure_full_spikes_percent=Guests.get_guest_rrd_value(guest_rrd, guest['name'], 'pressurememoryfull', spikes=True),
                             pressure_hot=False,
                         ),
                         name=guest['name'],
@@ -192,7 +196,7 @@ class Guests:
         return guests
 
     @staticmethod
-    def get_guest_rrd_datasets(proxmox_api: ProxmoxApi, node_name: str, vm_id: int, vm_name: str, guest_type: Config.GuestType) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]]]:
+    def get_guest_rrd_datasets(proxmox_api: ProxmoxApi, node_name: str, vm_id: int, vm_name: str, guest_type: Config.GuestType) -> 'GuestRrdDatasets':
         """
         Fetches the RRD data for a guest VM or CT once, covering both the average and
         maximum (spike) consolidation functions.
@@ -211,7 +215,7 @@ class Guests:
             guest_type (GuestType): Whether the guest is a VM (qemu) or CT (lxc).
 
         Returns:
-            tuple[list, list]: The (average, max) RRD data entries for the guest.
+            GuestRrdDatasets: The average and maximum RRD data entries for the guest.
         """
         logger.debug("Starting: get_guest_rrd_datasets.")
 
@@ -237,51 +241,41 @@ class Guests:
             rrd_max = []
 
         logger.debug("Finished: get_guest_rrd_datasets.")
-        return rrd_average, rrd_max
+        return RrdDatasets(average=rrd_average, maximum=rrd_max)
 
     @staticmethod
-    def get_guest_rrd_value(rrd_average: list[Dict[str, Any]], rrd_max: list[Dict[str, Any]], vm_name: str, object_name: str, object_type: Optional[str], spikes: bool = False) -> float:
+    def get_guest_rrd_value(rrd_datasets: 'GuestRrdDatasets', vm_name: str, rrd_key: GuestRrdKey, spikes: bool = False) -> float:
         """
         Derives a single rrd data metric (CPU, memory, disk usage or pressure) of a guest
         VM or CT from the datasets already fetched via get_guest_rrd_datasets(). This
         performs no API call itself.
 
         Args:
-            rrd_average (list): The RRD entries fetched with cf="AVERAGE".
-            rrd_max (list): The RRD entries fetched with cf="MAX".
+            rrd_datasets (GuestRrdDatasets): The RRD entries fetched for both consolidation functions.
             vm_name (str): The name of the guest VM or CT.
-            object_name (str): The resource type to query (e.g., 'cpu', 'memory', 'disk').
-            object_type (str, optional): The pressure type ('some', 'full') or None for average usage.
+            rrd_key (GuestRrdKey): The rrd field to read.
             spikes (bool, optional): Whether to consider spikes in the calculation. Defaults to False.
 
         Returns:
             float: The calculated average usage value for the specified resource.
         """
         logger.debug("Starting: get_guest_rrd_value.")
-        guest_data_rrd = rrd_max if spikes else rrd_average
+        guest_data_rrd = rrd_datasets.maximum if spikes else rrd_datasets.average
 
         if not guest_data_rrd:
             logger.debug("Finished: get_guest_rrd_value.")
             return float(0.0)
 
-        if object_type:
-
-            lookup_key = f"pressure{object_name}{object_type}"
-            if spikes:
-                # RRD data is collected every minute, so we look at the last 6 entries
-                # and take the maximum value to represent the spike
-                logger.debug(f"Getting RRD data (spike: {spikes}) of pressure for {object_name} {object_type} from guest: {vm_name}.")
-                _rrd_data_value = [row[lookup_key] for row in guest_data_rrd if row.get(lookup_key) is not None]
-                rrd_data_value = max(_rrd_data_value[-6:], default=0.0)
-            else:
-                # Calculate the average value from the RRD data entries
-                logger.debug(f"Getting RRD data (spike: {spikes}) of pressure for {object_name} {object_type} from guest: {vm_name}.")
-                rrd_data_value = sum(entry.get(lookup_key, 0.0) for entry in guest_data_rrd) / len(guest_data_rrd)
-
+        logger.debug(f"Getting RRD data (spike: {spikes}) for {rrd_key} from guest: {vm_name}.")
+        if spikes:
+            # RRD data is collected every minute, so we look at the last 6 entries
+            # and take the maximum value to represent the spike
+            _rrd_data_value = [row[rrd_key] for row in guest_data_rrd if rrd_key in row]  # pyright: ignore[reportTypedDictNotRequiredAccess]
+            rrd_data_value = max(_rrd_data_value[-6:], default=0.0)
         else:
-            logger.debug(f"Getting RRD data of cpu usage from guest: {vm_name}.")
-            rrd_data_value = sum(entry.get("cpu", 0.0) for entry in guest_data_rrd) / len(guest_data_rrd)
+            # Calculate the average value from the RRD data entries
+            rrd_data_value = sum(entry[rrd_key] for entry in guest_data_rrd if rrd_key in entry) / len(guest_data_rrd)  # pyright: ignore[reportTypedDictNotRequiredAccess]
 
-        logger.debug(f"RRD data (spike: {spikes}) for {object_name} from guest: {vm_name}: {rrd_data_value}")
+        logger.debug(f"RRD data (spike: {spikes}) for {rrd_key} from guest: {vm_name}: {rrd_data_value}")
         logger.debug("Finished: get_guest_rrd_value.")
         return rrd_data_value
