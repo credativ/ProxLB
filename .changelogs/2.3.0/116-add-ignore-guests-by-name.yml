@@ -1,0 +1,2 @@
+added:
+- Add option to ignore guests by name via ignore_guests config option. [#116]

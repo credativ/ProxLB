@@ -527,16 +527,28 @@ balancing:
 ### Ignore VMs
 <img align="left" src="https://cdn.gyptazy.com/img/proxlb-ignore-vm-movement.jpg"/> Guests, such as VMs or CTs, can also be completely ignored. This means, they won't be affected by any migration (even when (anti-)affinity rules are enforced). To ensure a proper resource evaluation, these guests are still collected and evaluated but simply skipped for balancing actions. Another thing is the implementation. While ProxLB might have a very restricted configuration file including the file permissions, this file is only read- and writeable by the Proxmox administrators. However, we might have user and groups who want to define on their own that their systems shouldn't be moved. Therefore, these users can simpy set a specific tag to the guest object - just like the (anti)affinity rules.
 
+**Note:** Ignored guests are really ignored. Even by enforcing affinity rules this guest will be ignored.
+
+#### Ignoring VMs via Tags
 To define a guest to be ignored from the balancing, users assign a tag with the prefix `plb_ignore_$TAG`:
 
-#### Example for Screenshot
+##### Example for Screenshot
 ```
 plb_ignore_dev
 ```
 
 As a result, ProxLB will not migrate this guest with the `plb_ignore_dev` tag to any other node.
 
-**Note:** Ignored guests are really ignored. Even by enforcing affinity rules this guest will be ignored.
+#### Ignoring VMs by Name via Configuration
+Guests can also be ignored by name directly in the ProxLB configuration file. This is useful for automatically provisioned VMs or CTs that cannot have tags assigned themselves.
+
+**Example Config**
+```yaml
+balancing:
+  ignore_guests: ['my-auto-vm-01', 'my-auto-vm-02']
+```
+
+As a result, ProxLB will not migrate any guest whose name appears in the `ignore_guests` list.
 
 ### Pin VMs to Specific Hypervisor Nodes
 <img align="left" src="https://cdn.gyptazy.com/img/proxlb-tag-node-pinning.jpg"/> Guests, such as VMs or CTs, can also be pinned to specific (and multiple) nodes in the cluster. This might be usefull when running applications with some special licensing requirements that are only fulfilled on certain nodes. It might also be interesting, when some physical hardware is attached to a node, that is not available in general within the cluster.
