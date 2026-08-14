@@ -22,11 +22,15 @@ __license__ = "GPL-3.0"
 
 
 import time
-from typing import Any, Dict
+from typing import TYPE_CHECKING, Dict
 from proxlb.utils.config_parser import Config
 from proxlb.utils.logger import SystemdLogger
 from proxlb.utils.proxlb_data import ProxLbData
 from proxlb.utils.proxmox_api import ProxmoxApi
+from proxlb.utils.rrd import NodeRrdKey, RrdDatasets
+
+if TYPE_CHECKING:
+    from proxlb.utils.rrd import NodeRrdDatasets
 
 BalancingResource = Config.Balancing.Resource
 
@@ -73,7 +77,7 @@ class Nodes:
                 disk_used = node["disk"]
                 memory_used = node["mem"]
                 memory_free = node["maxmem"] - node["mem"]
-                node_rrd_average, node_rrd_max = Nodes.get_node_rrd_datasets(proxmox_api, node["node"])
+                node_rrd = Nodes.get_node_rrd_datasets(proxmox_api, node["node"])
 
                 nodes[node["node"]] = ProxLbData.Node(
                     name=node["node"],
@@ -88,10 +92,10 @@ class Nodes:
                         assigned_percent=0,
                         free_percent=cpu_free / node["maxcpu"] * 100,
                         used_percent=cpu_used / node["maxcpu"] * 100,
-                        pressure_some_percent=Nodes.get_node_rrd_value(node_rrd_average, node_rrd_max, node["node"], "cpu", "some"),
-                        pressure_full_percent=Nodes.get_node_rrd_value(node_rrd_average, node_rrd_max, node["node"], "cpu", "full"),
-                        pressure_some_spikes_percent=Nodes.get_node_rrd_value(node_rrd_average, node_rrd_max, node["node"], "cpu", "some", spikes=True),
-                        pressure_full_spikes_percent=Nodes.get_node_rrd_value(node_rrd_average, node_rrd_max, node["node"], "cpu", "full", spikes=True),
+                        pressure_some_percent=Nodes.get_node_rrd_value(node_rrd, node["node"], "pressurecpusome"),
+                        pressure_full_percent=0.0,  # There is no pressure_full for nodes, only for guests
+                        pressure_some_spikes_percent=Nodes.get_node_rrd_value(node_rrd, node["node"], "pressurecpusome", spikes=True),
+                        pressure_full_spikes_percent=0.0,
                         pressure_hot=False,
                     ),
                     disk=ProxLbData.Node.Metric(
@@ -102,10 +106,10 @@ class Nodes:
                         assigned_percent=0,
                         free_percent=disk_free / node["maxdisk"] * 100,
                         used_percent=disk_used / node["maxdisk"] * 100,
-                        pressure_some_percent=Nodes.get_node_rrd_value(node_rrd_average, node_rrd_max, node["node"], "disk", "some"),
-                        pressure_full_percent=Nodes.get_node_rrd_value(node_rrd_average, node_rrd_max, node["node"], "disk", "full"),
-                        pressure_some_spikes_percent=Nodes.get_node_rrd_value(node_rrd_average, node_rrd_max, node["node"], "disk", "some", spikes=True),
-                        pressure_full_spikes_percent=Nodes.get_node_rrd_value(node_rrd_average, node_rrd_max, node["node"], "disk", "full", spikes=True),
+                        pressure_some_percent=Nodes.get_node_rrd_value(node_rrd, node["node"], "pressureiosome"),
+                        pressure_full_percent=Nodes.get_node_rrd_value(node_rrd, node["node"], "pressureiofull"),
+                        pressure_some_spikes_percent=Nodes.get_node_rrd_value(node_rrd, node["node"], "pressureiosome", spikes=True),
+                        pressure_full_spikes_percent=Nodes.get_node_rrd_value(node_rrd, node["node"], "pressureiofull", spikes=True),
                         pressure_hot=False,
                     ),
                     memory=ProxLbData.Node.Metric(
@@ -116,10 +120,10 @@ class Nodes:
                         assigned_percent=0,
                         free_percent=memory_free / node["maxmem"] * 100,
                         used_percent=memory_used / node["maxmem"] * 100,
-                        pressure_some_percent=Nodes.get_node_rrd_value(node_rrd_average, node_rrd_max, node["node"], "memory", "some"),
-                        pressure_full_percent=Nodes.get_node_rrd_value(node_rrd_average, node_rrd_max, node["node"], "memory", "full"),
-                        pressure_some_spikes_percent=Nodes.get_node_rrd_value(node_rrd_average, node_rrd_max, node["node"], "memory", "some", spikes=True),
-                        pressure_full_spikes_percent=Nodes.get_node_rrd_value(node_rrd_average, node_rrd_max, node["node"], "memory", "full", spikes=True),
+                        pressure_some_percent=Nodes.get_node_rrd_value(node_rrd, node["node"], "pressurememorysome"),
+                        pressure_full_percent=Nodes.get_node_rrd_value(node_rrd, node["node"], "pressurememoryfull"),
+                        pressure_some_spikes_percent=Nodes.get_node_rrd_value(node_rrd, node["node"], "pressurememorysome", spikes=True),
+                        pressure_full_spikes_percent=Nodes.get_node_rrd_value(node_rrd, node["node"], "pressurememoryfull", spikes=True),
                         pressure_hot=False,
                     ),
                 )
@@ -197,7 +201,7 @@ class Nodes:
         return False
 
     @staticmethod
-    def get_node_rrd_datasets(proxmox_api: ProxmoxApi, node_name: str) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]]]:
+    def get_node_rrd_datasets(proxmox_api: ProxmoxApi, node_name: str) -> 'NodeRrdDatasets':
         """
         Fetches the RRD data for a node once, covering both the average and maximum
         (spike) consolidation functions.
@@ -213,7 +217,7 @@ class Nodes:
             node_name (str): The name of the node.
 
         Returns:
-            tuple[list, list]: The (average, max) RRD data entries for the node.
+            NodeRrdDatasets: The average and maximum RRD data entries for the node.
         """
         logger.debug("Starting: get_node_rrd_datasets.")
 
@@ -234,47 +238,43 @@ class Nodes:
             rrd_max = []
 
         logger.debug("Finished: get_node_rrd_datasets.")
-        return rrd_average, rrd_max
+        return RrdDatasets(average=rrd_average, maximum=rrd_max)
 
     @staticmethod
-    def get_node_rrd_value(rrd_average: list[Dict[str, Any]], rrd_max: list[Dict[str, Any]], node_name: str, object_name: str, object_type: str, spikes: bool = False) -> float:
+    def get_node_rrd_value(rrd_datasets: 'NodeRrdDatasets', node_name: str, rrd_key: NodeRrdKey, spikes: bool = False) -> float:
         """
         Derives a single rrd data metric (CPU, memory, disk pressure) of a node from the
         datasets already fetched via get_node_rrd_datasets(). This performs no API call
         itself.
 
         Args:
-            rrd_average (list): The RRD entries fetched with cf="AVERAGE".
-            rrd_max (list): The RRD entries fetched with cf="MAX".
+            rrd_datasets (NodeRrdDatasets): The RRD entries fetched for both consolidation functions.
             node_name (str): The name of the node.
-            object_name (str): The resource type to query (e.g., 'cpu', 'memory', 'disk').
-            object_type (str, optional): The pressure type ('some', 'full') or None for average usage.
+            rrd_key (NodeRrdKey): The rrd field to read.
             spikes (bool, optional): Whether to consider spikes in the calculation. Defaults to False.
 
         Returns:
             float: The calculated average usage value for the specified resource.
         """
         logger.debug("Starting: get_node_rrd_value.")
-        node_data_rrd = rrd_max if spikes else rrd_average
+        node_data_rrd = rrd_datasets.maximum if spikes else rrd_datasets.average
 
         if not node_data_rrd:
             logger.debug("Finished: get_node_rrd_value.")
             return 0.0
 
-        lookup_key = f"pressure{object_name}{object_type}"
-
         if spikes:
             # RRD data is collected every minute, so we look at the last 6 entries
             # and take the maximum value to represent the spike
             rrd_data_value = max(
-                [row[lookup_key] for row in node_data_rrd if row.get(lookup_key) is not None][-6:],
+                [row[rrd_key] for row in node_data_rrd if rrd_key in row][-6:],  # pyright: ignore[reportTypedDictNotRequiredAccess]
                 default=0.0,
             )
         else:
             # Calculate the average value from the RRD data entries
-            rrd_data_value = sum(entry.get(lookup_key, 0.0) for entry in node_data_rrd) / len(node_data_rrd)
+            rrd_data_value = sum(entry[rrd_key] for entry in node_data_rrd if rrd_key in entry) / len(node_data_rrd)  # pyright: ignore[reportTypedDictNotRequiredAccess]
 
-        logger.debug(f"RRD data (spike: {spikes}) for {object_name} from node: {node_name}: {rrd_data_value}")
+        logger.debug(f"RRD data (spike: {spikes}) for {rrd_key} from node: {node_name}: {rrd_data_value}")
         logger.debug("Finished: get_node_rrd_value.")
         return rrd_data_value
 
