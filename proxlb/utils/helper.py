@@ -357,7 +357,7 @@ class Helper:
                 return host_object, 8006
 
     @staticmethod
-    def validate_node_presence(node: str, nodes: Dict[str, ProxLbData.Node]) -> bool:
+    def validate_node_presence(node: str, nodes: Dict[str, ProxLbData.Node]) -> Optional[str]:
         """
         Validates whether a given node exists in the provided cluster nodes dictionary.
 
@@ -367,18 +367,19 @@ class Helper:
                                     Must include a "nodes" key mapping to a dict of available nodes.
 
         Returns:
-            bool: True if the node exists in the cluster, False otherwise.
+            Optional[str]: Name of the node if matching.
         """
         logger.debug("Starting: validate_node_presence.")
 
-        if node in nodes.keys():
-            logger.info(f"Node {node} found in cluster. Applying pinning.")
-            logger.debug("Finished: validate_node_presence.")
-            return True
-        else:
-            logger.warning(f"Node {node} not found in cluster. Not applying pinning!")
-            logger.debug("Finished: validate_node_presence.")
-            return False
+        for _node in nodes:
+            if node.lower() == _node.lower():
+                logger.info(f"Node {node} found in cluster. Applying pinning.")
+                logger.debug("Finished: validate_node_presence.")
+                return _node
+
+        logger.warning(f"Node {node} not found in cluster. Not applying pinning!")
+        logger.debug("Finished: validate_node_presence.")
+        return None
 
     @staticmethod
     def tcp_connect_test(addr_family: int, host: str, port: int, timeout: int) -> tuple[bool, Optional[int]]:
