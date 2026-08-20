@@ -258,7 +258,7 @@ class Tags:
                     _node_name = Helper.validate_node_presence(node_relationship_tag, nodes)
                     if _node_name:
                         logger.debug(f"Tag {node_relationship_tag} is valid! Defined node exists in the cluster.")
-                        logger.debug(f"Setting node relationship because of tag {tag} to {node_relationship_tag}.")
+                        logger.debug(f"Setting node relationship because of tag {tag} to {_node_name}.")
                         node_relationship_tags.append(_node_name)
                     else:
                         logger.warning(f"Tag {node_relationship_tag} is invalid! Defined node does not exist in the cluster. Not applying pinning.")
