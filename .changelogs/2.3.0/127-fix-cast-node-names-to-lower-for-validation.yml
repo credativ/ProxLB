@@ -1,0 +1,3 @@
+fixed:
+- Cast node names when comparing to lower case as tags within the PVE API cast all strings to lower which affects node pinning. [#127|
+- Returning the original node name for the generated `guest_node_relation_list` list when evaluating most free node. [#127]
