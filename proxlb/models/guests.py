@@ -270,7 +270,7 @@ class Guests:
         if spikes:
             # RRD data is collected every minute, so we look at the last 6 entries
             # and take the maximum value to represent the spike
-            _rrd_data_value = [value for row in guest_data_rrd if (value := row.get(rrd_key)) is not None]
+            _rrd_data_value = [row[rrd_key] for row in guest_data_rrd if rrd_key in row and row[rrd_key] is not None]  # pyright: ignore[reportTypedDictNotRequiredAccess]
             rrd_data_value = max(_rrd_data_value[-6:], default=0.0)
         else:
             # Calculate the average value from the RRD data entries
