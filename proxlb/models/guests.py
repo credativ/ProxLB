@@ -274,7 +274,7 @@ class Guests:
             rrd_data_value = max(_rrd_data_value[-6:], default=0.0)
         else:
             # Calculate the average value from the RRD data entries
-            rrd_data_value = sum(value for entry in guest_data_rrd if (value := entry.get(rrd_key)) is not None) / len(guest_data_rrd)
+            rrd_data_value = sum(entry[rrd_key] for entry in guest_data_rrd if rrd_key in entry and entry[rrd_key] is not None) / len(guest_data_rrd)  # pyright: ignore[reportTypedDictNotRequiredAccess]
 
         logger.debug(f"RRD data (spike: {spikes}) for {rrd_key} from guest: {vm_name}: {rrd_data_value}")
         logger.debug("Finished: get_guest_rrd_value.")

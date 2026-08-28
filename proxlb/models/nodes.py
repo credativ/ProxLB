@@ -267,12 +267,12 @@ class Nodes:
             # RRD data is collected every minute, so we look at the last 6 entries
             # and take the maximum value to represent the spike
             rrd_data_value = max(
-                [value for row in node_data_rrd if (value := row.get(rrd_key)) is not None][-6:],
+                [row[rrd_key] for row in node_data_rrd if rrd_key in row and row[rrd_key] is not None][-6:],  # pyright: ignore[reportTypedDictNotRequiredAccess]
                 default=0.0,
             )
         else:
             # Calculate the average value from the RRD data entries
-            rrd_data_value = sum(value for entry in node_data_rrd if (value := entry.get(rrd_key)) is not None) / len(node_data_rrd)
+            rrd_data_value = sum(entry[rrd_key] for entry in node_data_rrd if rrd_key in entry and entry[rrd_key] is not None) / len(node_data_rrd)  # pyright: ignore[reportTypedDictNotRequiredAccess]
 
         logger.debug(f"RRD data (spike: {spikes}) for {rrd_key} from node: {node_name}: {rrd_data_value}")
         logger.debug("Finished: get_node_rrd_value.")
