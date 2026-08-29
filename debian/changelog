@@ -1,3 +1,12 @@
+proxlb (2.3.0) stable; urgency=medium
+
+  * Add option to ignore guests by name via ignore_guests config option. (Closes: #116)
+  * Add solver.fallback_to_greedy to opt out of greedy Balancing() when the CP-SAT solver cannot find a feasible plan in active mode. (Closes: #120)
+  * Cast node names when comparing to lower case as tags within the PVE API cast all strings to lower which affects node pinning. (Closes: #127)
+  * Returning the original node name for the generated `guest_node_relation_list` list when evaluating most free node. (Closes: #127)
+
+ -- Florian Paul Azim Hoberg gyptazy <florian.hoberg@credativ.de>  Mon, 31 Aug 2026 08:12:14 +0200
+
 proxlb (2.2.0) stable; urgency=medium
 
   * Add HA mode support to ProxLB. (Closes: #11)
