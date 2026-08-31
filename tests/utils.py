@@ -3,7 +3,7 @@ from proxlb.utils.config_parser import Config
 
 
 MINIMAL_DATA = ProxLbData(
-    guests={}, ha_rules={}, nodes={}, pools={}, groups=ProxLbData.Groups(),
+    guests={}, ha_rules={}, nodes={}, pools={}, storage={}, groups=ProxLbData.Groups(),
     meta=ProxLbData.Meta(
         proxmox_api=Config.ProxmoxAPI(hosts=[], user=""),
         cluster_non_pve9=False,
@@ -63,4 +63,6 @@ def create_guest(name: str, node_current: str, node_target: str) -> ProxLbData.G
         node_relationships=[],
         node_relationships_strict=False,
         type=Config.GuestType.Vm,
+        disks={},
+        ha_managed=False,
     )

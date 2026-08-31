@@ -16,6 +16,8 @@ from proxlb.utils.proxlb_data import ProxLbData
 from proxlb.utils.rrd import GuestRrdKey, RrdDatasets
 from proxlb.models.pools import Pools
 from proxlb.models.ha_rules import HaRules
+from proxlb.models.ha_status import HaStatus
+from proxlb.models.storage import Storage
 from proxlb.models.tags import Tags
 import time
 
@@ -46,7 +48,7 @@ class Guests:
         """
 
     @staticmethod
-    def get_guests(proxmox_api: ProxmoxApi, pools: Dict[str, ProxLbData.Pool], ha_rules: Dict[str, ProxLbData.HaRule], nodes: Dict[str, ProxLbData.Node], proxlb_config: Config) -> Dict[str, ProxLbData.Guest]:
+    def get_guests(proxmox_api: ProxmoxApi, pools: Dict[str, ProxLbData.Pool], ha_rules: Dict[str, ProxLbData.HaRule], nodes: Dict[str, ProxLbData.Node], storage: Dict[str, ProxLbData.Storage], proxlb_config: Config) -> Dict[str, ProxLbData.Guest]:
         """
         Get metrics of all guests in a Proxmox cluster.
 
@@ -59,7 +61,7 @@ class Guests:
             pools (Dict[str, Any]): A dictionary containing information about the pools in the Proxmox cluster.
             ha_rules (Dict[str, Any]): A dictionary containing information about the HA rules in the
             nodes (Dict[str, Any]): A dictionary containing information about the nodes in the Proxmox cluster.
-            meta (Dict[str, Any]): A dictionary containing metadata information.
+            storage (Dict[str, Any]): A dictionary containing the storages collected by Storage.get_storage.
             proxmox_config (Dict[str, Any]): A dictionary containing the ProxLB configuration.
 
         Returns:
@@ -67,6 +69,7 @@ class Guests:
         """
         logger.debug("Starting: get_guests.")
         guests: Dict[str, ProxLbData.Guest] = {}
+        ha_managed_sids = HaStatus.get_ha_managed_sids(proxmox_api)
 
         # Guest objects are always only in the scope of a node.
         # Therefore, we need to iterate over all nodes to get all guests.
@@ -126,6 +129,8 @@ class Guests:
                         node_relationships=Tags.get_node_relationships(guest_tags, nodes, guest_pools, guest_ha_rules, proxlb_config),
                         node_relationships_strict=Pools.get_pool_node_affinity_strictness(proxlb_config, guest_pools),
                         type=GuestType.Vm,
+                        disks=Storage.get_disks_for_guest(guest['vmid'], storage),
+                        ha_managed=f"vm:{guest['vmid']}" in ha_managed_sids,
                     )
 
                     logger.debug(f"Resources of Guest {guest['name']} (type VM) added: {guests[guest['name']]}")
@@ -186,6 +191,8 @@ class Guests:
                         node_relationships=Tags.get_node_relationships(guest_tags, nodes, guest_pools, guest_ha_rules, proxlb_config),
                         node_relationships_strict=Pools.get_pool_node_affinity_strictness(proxlb_config, guest_pools),
                         type=GuestType.Ct,
+                        disks=Storage.get_disks_for_guest(guest['vmid'], storage),
+                        ha_managed=f"ct:{guest['vmid']}" in ha_managed_sids,
                     )
 
                     logger.debug(f"Resources of Guest {guest['name']} (type CT) added: {guests[guest['name']]}")

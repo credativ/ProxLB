@@ -31,6 +31,7 @@ from proxlb.models.balancing import Balancing
 from proxlb.models.pools import Pools
 from proxlb.models.ha_rules import HaRules
 from proxlb.models.ha_status import HaStatus
+from proxlb.models.storage import Storage
 from proxlb.utils.helper import Helper
 from proxlb.utils.proxlb_data import ProxLbData
 
@@ -104,9 +105,10 @@ while True:
     Helper.apply_maintenance_nodes_schedule(proxlb_config)
     nodes = Nodes.get_nodes(proxmox_api, proxlb_config)
     meta = Features.validate_any_non_pve9_node(proxlb_config, nodes)
+    storage = Storage.get_storage(proxmox_api, nodes)
     pools = Pools.get_pools(proxmox_api)
     ha_rules = HaRules.get_ha_rules(proxmox_api, meta)
-    guests = Guests.get_guests(proxmox_api, pools, ha_rules, nodes, proxlb_config)
+    guests = Guests.get_guests(proxmox_api, pools, ha_rules, nodes, storage, proxlb_config)
     groups = Groups.get_groups(guests, nodes)
 
     # Merge obtained objects from the Proxmox cluster for further usage
@@ -117,6 +119,7 @@ while True:
         pools=pools,
         ha_rules=ha_rules,
         groups=groups,
+        storage=storage,
     )
     Helper.log_node_metrics(proxlb_data)
 

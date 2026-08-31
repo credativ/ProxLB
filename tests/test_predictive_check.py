@@ -97,6 +97,8 @@ def _make_guest(name: str, node: str, memory_gb: float) -> ProxLbData.Guest:
         cpu=cpu,
         memory=mem,
         disk=disk,
+        disks={},
+        ha_managed=False,
     )
 
 
@@ -113,6 +115,7 @@ def _build_proxlb_data(
         ha_rules={},
         nodes=nodes,
         pools={},
+        storage={},
         groups=ProxLbData.Groups(affinity={}),
         meta=ProxLbData.Meta(
             proxmox_api=Config.ProxmoxAPI(hosts=[], user=""),
