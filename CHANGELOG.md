@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-08-31
+
+### Added
+
+- Add option to ignore guests by name via ignore_guests config option. (@CO-lhageman). [#116]
+- Add `solver.fallback_to_greedy` to opt out of greedy Balancing() when the CP-SAT solver cannot find a feasible plan in active mode. (@JaketheO) [#120] 
+
+### Fixed
+
+- Cast node names when comparing to lower case as tags within the PVE API cast all strings to lower which affects node pinning (@gyptazy). [#127]
+- Returning the original node name for the generated `guest_node_relation_list` list when evaluating most free node (@gyptazy). [#127]
+
+### Changed
+
+- Replace the (average, max) tuple returned by get_*_rrd_datasets() with a generic RrdDatasets container (@dlucredativ and @archandha).
 
 ## [2.2.0] - 2026-06-10
 

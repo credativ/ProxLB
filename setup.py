@@ -5,7 +5,7 @@ long_description = (Path(__file__).parent / 'README.md').read_text(encoding='utf
 
 setup(
     name="proxlb",
-    version="2.2.0",
+    version="2.3.0",
     description="An advanced resource scheduler and load balancer for Proxmox clusters.",
     long_description=long_description,
     long_description_content_type="text/markdown",

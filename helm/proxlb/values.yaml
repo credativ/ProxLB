@@ -1,7 +1,7 @@
 image:
   registry: ghcr.io
   repository: credativ/proxlb
-  tag: v2.2.0
+  tag: v2.3.0
   pullPolicy: IfNotPresent
   imagePullSecrets: [ ]
 
