@@ -123,6 +123,15 @@ class Config(BaseModel):
         psi: Optional[Psi] = None
         with_conntrack_state: bool = True
         with_local_disks: bool = True
+        # Target storage remapping for clusters built on node-local (non-shared)
+        # storage, where the source storage id may not exist on the target node.
+        # Disabled by default to preserve Proxmox' "same storage id" behaviour on
+        # shared-storage clusters. When 'target_storage_auto' is enabled, the
+        # storage with the most free space accepting the guest's content type is
+        # picked on the target node. 'target_storage_map' allows pinning a storage
+        # per target node and takes precedence over auto selection.
+        target_storage_auto: bool = False
+        target_storage_map: Optional[dict[str, str]] = None
 
         def threshold(self, method: "Config.Balancing.Resource") -> Optional[int]:
             if method == self.Resource.Cpu:

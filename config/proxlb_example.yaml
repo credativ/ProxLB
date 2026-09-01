@@ -33,6 +33,14 @@ balancing:
   live: True
   with_local_disks: True
   with_conntrack_state: True
+  # Target storage remapping for node-local (non-shared) storage clusters, where
+  # the source storage id may not exist on the target node. Disabled by default.
+  # Note: HA-managed guests are skipped when a remap would apply, because the
+  # Proxmox HA stack does not forward the target storage to the migration task.
+  target_storage_auto: False          # Auto-pick the target-node storage with the most free space
+  # target_storage_map:               # Optional: pin a storage per target node (overrides auto)
+  #   pve5: local
+  #   pve2: local
   cpu_overcommit: 2.0                 # Maximum ratio of vCPUs to physical cores per node
   max_node_inflow: 1                  # Maximum number of VMs that may be migrated onto any single node per run
   balance_types: ['vm', 'ct']         # 'vm' | 'ct'
