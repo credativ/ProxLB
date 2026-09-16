@@ -36,7 +36,7 @@ from proxlb.models.balancing import Balancing
 from proxlb.models.pools import Pools
 from proxlb.models.ha_rules import HaRules
 from proxlb.models.ha_status import HaStatus
-from proxlb.utils.helper import Helper
+from proxlb.utils.helper import Helper, NodeUnavailableError
 from proxlb.utils.proxlb_data import ProxLbData
 
 
@@ -204,9 +204,10 @@ while True:
         proxmoxer.core.ResourceException,
         proxmoxer.backends.https.AuthenticationError,
         requests.exceptions.RequestException,
+        NodeUnavailableError,
     ) as api_error:
         logger.critical(
-            f"ProxLB: A Proxmox API call failed: {api_error}. "
+            f"ProxLB: A Proxmox API call failed or a cluster node became unavailable: {api_error}. "
             "Reconnecting to the Proxmox API and restarting balancing run from scratch."
         )
         time.sleep(proxlb_config.proxmox_api.wait_time)

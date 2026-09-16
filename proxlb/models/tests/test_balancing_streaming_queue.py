@@ -14,8 +14,11 @@ __license__ = "GPL-3.0"
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from proxlb.models.balancing import Balancing
 from proxlb.utils.config_parser import Config
+from proxlb.utils.helper import Helper, NodeUnavailableError
 from proxlb.utils.proxmox_api import ProxmoxApi
 
 GuestType = Config.GuestType
@@ -55,6 +58,7 @@ def _proxlb_data(
     data.meta.balancing.with_local_disks = True
     data.meta.balancing.with_conntrack_state = True
     data.guests = guests
+    data.nodes = {}
     return data
 
 
@@ -247,3 +251,23 @@ def test_failed_migration_returns_false(
     result = Balancing.balance(MagicMock(), proxlb_data)
 
     assert result is False
+
+
+@patch("proxlb.models.balancing.time.sleep")
+@patch.object(Balancing, "_exec_rebalancing_vm")
+@patch.object(Helper, "check_nodes_available")
+def test_balance_aborts_when_a_node_becomes_unavailable(
+        mock_check_nodes: MagicMock, mock_exec_vm: MagicMock, mock_sleep: MagicMock,
+) -> None:
+    """balance() must raise NodeUnavailableError instead of migrating once a node drops out."""
+    proxlb_data = _proxlb_data({
+        "vm1": _guest(101, "node1", "node2"),
+    })
+    proxlb_data.nodes = {"node1": MagicMock(), "node2": MagicMock()}
+
+    mock_check_nodes.return_value = False
+
+    with pytest.raises(NodeUnavailableError):
+        Balancing.balance(MagicMock(), proxlb_data)
+
+    mock_exec_vm.assert_not_called()

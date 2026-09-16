@@ -14,17 +14,30 @@ import re
 import socket
 import sys
 import time
+import proxmoxer
+import requests
 from datetime import datetime, timedelta, time as datetime_time
 from proxlb.utils import version
 from proxlb.utils.config_parser import Config
 from proxlb.utils.logger import SystemdLogger
 from proxlb.utils.proxlb_data import ProxLbData
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, TYPE_CHECKING
 from types import FrameType
+
+if TYPE_CHECKING:
+    from proxlb.utils.proxmox_api import ProxmoxApi
 
 BalancingResource = Config.Balancing.Resource
 
 logger = SystemdLogger()
+
+
+class NodeUnavailableError(Exception):
+    """
+    Raised when a node that was previously discovered via Nodes.get_nodes()
+    no longer responds to a Proxmox API status check, indicating the ProxLB
+    run should be aborted and restarted from scratch.
+    """
 
 
 class Helper:
@@ -405,3 +418,31 @@ class Helper:
             return (rc == 0, rc if rc != 0 else None)
         finally:
             test_socket.close()
+
+    @staticmethod
+    def check_nodes_available(proxmox_api: "ProxmoxApi", nodes: Dict[str, ProxLbData.Node]) -> bool:
+        """
+        Validates that all previously discovered cluster nodes are still reachable
+        via the Proxmox API by querying each node's status endpoint (nodes/{node}/status).
+
+        Args:
+            proxmox_api (ProxmoxApi): The Proxmox API client instance.
+            nodes (Dict[str, ProxLbData.Node]): The nodes collected at the start of the run.
+
+        Returns:
+            bool: True if every node responded successfully, False if any node is unreachable.
+        """
+        logger.debug("Starting: check_nodes_available.")
+
+        for node_name in nodes:
+            try:
+                proxmox_api.nodes(node_name).status.get()
+            except (proxmoxer.core.ResourceException, requests.exceptions.RequestException) as node_error:
+                logger.warning(
+                    f"Helper: Node {node_name} did not respond to a status check "
+                    f"and may no longer be available: {node_error}")
+                logger.debug("Finished: check_nodes_available.")
+                return False
+
+        logger.debug("Finished: check_nodes_available.")
+        return True
