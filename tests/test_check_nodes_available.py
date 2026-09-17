@@ -6,7 +6,7 @@ import requests
 from proxlb.utils.helper import Helper
 
 
-def _proxmox_api(cluster_status: list[dict] | None = None, error: Exception | None = None) -> MagicMock:
+def _proxmox_api(cluster_status: list[dict[str, object]] | None = None, error: Exception | None = None) -> MagicMock:
     api = MagicMock()
     if error is not None:
         api.cluster.status.get.side_effect = error
