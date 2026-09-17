@@ -35,8 +35,8 @@ logger = SystemdLogger()
 class NodeUnavailableError(Exception):
     """
     Raised when a node that was previously discovered via Nodes.get_nodes()
-    no longer responds to a Proxmox API status check, indicating the ProxLB
-    run should be aborted and restarted from scratch.
+    is no longer online in the cluster, indicating the ProxLB run should be
+    aborted and restarted from scratch.
     """
 
 
@@ -422,25 +422,43 @@ class Helper:
     @staticmethod
     def check_nodes_available(proxmox_api: "ProxmoxApi", nodes: Dict[str, ProxLbData.Node]) -> bool:
         """
-        Validates that all previously discovered cluster nodes are still reachable
-        via the Proxmox API by querying each node's status endpoint (nodes/{node}/status).
+        Validates that a balancing decision made at the start of a run is still
+        useful by checking that all previously discovered cluster nodes are still
+        online, via a single call to the cluster status endpoint (cluster/status).
+
+        API connection reachability itself is already handled by ProxmoxApi and
+        is not what this check is for.
 
         Args:
             proxmox_api (ProxmoxApi): The Proxmox API client instance.
             nodes (Dict[str, ProxLbData.Node]): The nodes collected at the start of the run.
 
         Returns:
-            bool: True if every node responded successfully, False if any node is unreachable.
+            bool: True if every previously discovered node is still online, False otherwise.
         """
         logger.debug("Starting: check_nodes_available.")
 
+        if not nodes:
+            logger.debug("Finished: check_nodes_available.")
+            return True
+
+        try:
+            cluster_status = proxmox_api.cluster.status.get()
+        except (proxmoxer.core.ResourceException, requests.exceptions.RequestException) as cluster_error:
+            logger.warning(f"Helper: Failed to query cluster status: {cluster_error}")
+            logger.debug("Finished: check_nodes_available.")
+            return False
+
+        online_nodes = {
+            entry["name"] for entry in cluster_status
+            if entry.get("type") == "node" and entry.get("online")
+        }
+
         for node_name in nodes:
-            try:
-                proxmox_api.nodes(node_name).status.get()
-            except (proxmoxer.core.ResourceException, requests.exceptions.RequestException) as node_error:
+            if node_name not in online_nodes:
                 logger.warning(
-                    f"Helper: Node {node_name} did not respond to a status check "
-                    f"and may no longer be available: {node_error}")
+                    f"Helper: Node {node_name} is no longer online in the cluster "
+                    "and may no longer be available.")
                 logger.debug("Finished: check_nodes_available.")
                 return False
 

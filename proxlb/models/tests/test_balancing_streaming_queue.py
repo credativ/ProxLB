@@ -102,6 +102,70 @@ def test_no_migration_when_guests_are_ignored(
 @patch("proxlb.models.balancing.time.sleep")
 @patch.object(Balancing, "_get_rebalancing_job_status")
 @patch.object(Balancing, "_exec_rebalancing_vm")
+@patch.object(Helper, "check_nodes_available")
+def test_check_nodes_available_skipped_when_guests_already_on_target(
+        mock_check_nodes: MagicMock, mock_exec_vm: MagicMock, mock_get_status: MagicMock, mock_sleep: MagicMock,
+) -> None:
+    """Guests that are already on their target node must not trigger a node availability check."""
+    proxlb_data = _proxlb_data({
+        "vm1": _guest(101, "node1", "node1"),
+        "vm2": _guest(102, "node2", "node2"),
+    })
+    proxlb_data.nodes = {"node1": MagicMock(), "node2": MagicMock()}
+
+    result = Balancing.balance(MagicMock(), proxlb_data)
+
+    assert result is True
+    mock_check_nodes.assert_not_called()
+    mock_exec_vm.assert_not_called()
+
+
+@patch("proxlb.models.balancing.time.sleep")
+@patch.object(Balancing, "_get_rebalancing_job_status")
+@patch.object(Balancing, "_exec_rebalancing_vm")
+@patch.object(Helper, "check_nodes_available")
+def test_check_nodes_available_skipped_when_guests_are_ignored(
+        mock_check_nodes: MagicMock, mock_exec_vm: MagicMock, mock_get_status: MagicMock, mock_sleep: MagicMock,
+) -> None:
+    """Ignored guests must not trigger a node availability check even when their target node differs."""
+    proxlb_data = _proxlb_data({
+        "vm1": _guest(101, "node1", "node2", ignore=True),
+    })
+    proxlb_data.nodes = {"node1": MagicMock(), "node2": MagicMock()}
+
+    result = Balancing.balance(MagicMock(), proxlb_data)
+
+    assert result is True
+    mock_check_nodes.assert_not_called()
+    mock_exec_vm.assert_not_called()
+
+
+@patch("proxlb.models.balancing.time.sleep")
+@patch.object(Balancing, "_get_rebalancing_job_status")
+@patch.object(Balancing, "_exec_rebalancing_vm")
+@patch.object(Helper, "check_nodes_available")
+def test_check_nodes_available_called_when_guest_will_move(
+        mock_check_nodes: MagicMock, mock_exec_vm: MagicMock, mock_get_status: MagicMock, mock_sleep: MagicMock,
+) -> None:
+    """A guest that will actually be migrated must trigger a node availability check."""
+    proxlb_data = _proxlb_data({
+        "vm1": _guest(101, "node1", "node2"),
+    })
+    proxlb_data.nodes = {"node1": MagicMock(), "node2": MagicMock()}
+
+    mock_check_nodes.return_value = True
+    mock_exec_vm.return_value = "job-vm1"
+    mock_get_status.return_value = Balancing.BalancingStatus.FINISHED
+
+    result = Balancing.balance(MagicMock(), proxlb_data)
+
+    assert result is True
+    mock_check_nodes.assert_called_once_with(mock_check_nodes.call_args.args[0], proxlb_data.nodes)
+
+
+@patch("proxlb.models.balancing.time.sleep")
+@patch.object(Balancing, "_get_rebalancing_job_status")
+@patch.object(Balancing, "_exec_rebalancing_vm")
 def test_sequential_mode_runs_one_migration_at_a_time(
         mock_exec_vm: MagicMock, mock_get_status: MagicMock, mock_sleep: MagicMock,
 ) -> None:

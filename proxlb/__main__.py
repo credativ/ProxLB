@@ -219,6 +219,7 @@ while True:
         proxmox_api = ProxmoxApi(proxlb_config)
         proxlb_config.proxmox_api.password = "********"
         proxlb_config.proxmox_api.token_secret = "********"
+        Helper.get_daemon_mode(proxlb_config)
         continue
 
     # Validate if the JSON output should be
