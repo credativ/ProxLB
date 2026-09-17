@@ -12,6 +12,7 @@ __license__ = "GPL-3.0"
 
 import proxmoxer
 import time
+from proxlb.utils.helper import Helper, NodeUnavailableError
 from proxlb.utils.logger import SystemdLogger
 from proxlb.utils.proxmox_api import ProxmoxApi
 from proxlb.utils.config_parser import Config
@@ -93,7 +94,11 @@ class Balancing:
 
         Keeps up to parallel_job_limit migrations in flight at once and immediately
         submits the next guest as soon as a slot becomes free, rather than waiting
-        for an entire chunk to finish.
+        for an entire chunk to finish. Before dispatching a guest that will actually
+        be migrated, all cluster nodes are re-checked for availability so a node
+        that disappeared mid-run aborts the run instead of migrating guests onto a
+        stale target. Guests that would not be migrated anyway (already on their
+        target node, ignored, or of a type excluded from balancing) skip this check.
 
         Args:
             proxmox_api (ProxmoxApi): The Proxmox API client instance.
@@ -101,6 +106,9 @@ class Balancing:
 
         Returns:
             bool: True if all migrations completed successfully, False otherwise.
+
+        Raises:
+            NodeUnavailableError: If a cluster node is no longer online.
         """
         logger.debug("Starting: balance.")
         parallel_job_limit = Balancing.get_parallel_job_limit(proxlb_data.meta.balancing)
@@ -117,6 +125,18 @@ class Balancing:
                     error_occurred = True
                 if len(jobs_to_wait) >= parallel_job_limit:
                     time.sleep(5)
+
+            guest_will_move = (
+                guest_meta.node_current != guest_meta.node_target
+                and not guest_meta.ignore
+                and guest_meta.type in proxlb_data.meta.balancing.balance_types)
+
+            if guest_will_move and not Helper.check_nodes_available(proxmox_api, proxlb_data.nodes):
+                logger.critical(
+                    "Balancing: At least one cluster node is no longer online. "
+                    "Aborting the current balancing run.")
+                raise NodeUnavailableError(
+                    "At least one cluster node became unavailable during balancing.")
 
             job_id = Balancing._exec_rebalancing(proxmox_api, proxlb_data, guest_name)
             logger.debug(f"Balancing: job_id for {guest_name}: {job_id!r}, jobs_to_wait len: {len(jobs_to_wait)}")
