@@ -1,0 +1,2 @@
+fixed:
+  - Allow relocating anti-affinity violating guests from non-peak nodes when enforce_affinity is active. [#138]
