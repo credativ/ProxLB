@@ -1,0 +1,2 @@
+fix:
+- Fix segmentation fault when PVE API is unreachable during runtime. [#134]

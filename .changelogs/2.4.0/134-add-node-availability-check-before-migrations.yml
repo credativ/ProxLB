@@ -1,0 +1,2 @@
+added:
+- Check that all cluster nodes still respond to `nodes/{node}/status` before dispatching each migration during balancing; restarts ProxLB from scratch if a node has become unavailable. [#134]
