@@ -1,0 +1,4 @@
+fixed:
+- Keep the target node of the resource based balancing for guests in anti-affinity groups instead of always overwriting it with the first node of the cluster, which could place a guest next to a member of its own anti-affinity group. [#139]
+- Take the nodes of all other members of an anti-affinity group into account when selecting a target node and fall back to the most free node that is free of them. [#139]
+- Skip the relocation of a guest instead of assigning an invalid node when no node is left that satisfies its anti-affinity groups. [#139]
