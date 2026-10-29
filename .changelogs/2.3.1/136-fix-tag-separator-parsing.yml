@@ -1,0 +1,2 @@
+fixed:
+  - Support comma, semicolon, and whitespace tag separators in get_tags_from_guests to align with Proxmox VE API format.
