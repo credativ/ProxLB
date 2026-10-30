@@ -1,0 +1,3 @@
+fixed:
+  - Account for nodes hosting other members in val_anti_affinity to avoid assigning to colliding nodes.
+  - Allow relocating anti-affinity violating guests from non-peak nodes when enforce_affinity is active.

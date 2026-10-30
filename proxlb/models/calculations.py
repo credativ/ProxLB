@@ -461,8 +461,10 @@ class Calculations:
                     highest_node = max(proxlb_data.nodes.values(), key=lambda n: n.metric(method).used_percent)
 
                     if highest_node.name != source_node:
-                        logger.debug(f"Stopping relocation for guest {guest_name}: source node {source_node} is no longer the most loaded node.")
-                        break
+                        violates_anti_affinity = not Calculations.validate_current_anti_affinity(proxlb_data, guest_name)
+                        if not (proxlb_data.meta.balancing.enforce_affinity and violates_anti_affinity):
+                            logger.debug(f"Stopping relocation for guest {guest_name}: source node {source_node} is no longer the most loaded node.")
+                            break
 
                     if not Calculations.validate_node_resources(proxlb_data, guest_name):
                         if proxlb_data.meta.balancing.balance_next_node is None:
@@ -524,13 +526,19 @@ class Calculations:
                 # Check if the group has only one member. If so skip new guest node assignment.
                 if proxlb_data.groups.anti_affinity[group_name].counter > 1:
                     logger.debug("Anti-Affinity: Group has more than 1 member.")
+                    # Determine all nodes currently occupied or already selected by other guests in this anti-affinity group
+                    occupied_nodes = set(proxlb_data.groups.anti_affinity[group_name].used_nodes)
+                    for member in proxlb_data.groups.anti_affinity[group_name].guests:
+                        if member != guest_name and member in proxlb_data.guests:
+                            member_node = proxlb_data.guests[member].node_target or proxlb_data.guests[member].node_current
+                            occupied_nodes.add(member_node)
+
                     # Iterate over all available nodes
                     for node_name in proxlb_data.nodes.keys():
 
-                        # Only select node if it was not used before and is not in a
-                        # maintenance mode. Afterwards, add it to the list of already
-                        # used nodes for the current anti-affinity group
-                        if node_name not in proxlb_data.groups.anti_affinity[group_name].used_nodes:
+                        # Only select node if it was not used before, is not occupied by another member
+                        # in the anti-affinity group, and is not in a maintenance mode.
+                        if node_name not in occupied_nodes:
 
                             if not proxlb_data.nodes[node_name].maintenance:
                                 # If the node has not been used yet, we assign this node to the guest
