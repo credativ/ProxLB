@@ -1,0 +1,2 @@
+fixed:
+  - Fix validate_affinity_map loop bug where affinity/anti-affinity constraint violation on the last guest was ignored.

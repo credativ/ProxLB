@@ -701,19 +701,16 @@ class Calculations:
         balancing_ok = True
 
         for guest in proxlb_data.guests:
-
-            # We do not need to validate anymore if rebalancing is required
-            if balancing_ok is False:
-                proxlb_data.meta.balancing.enforce_affinity = True
-                logger.debug("Rebalancing based on affinity/anti-affinity map is required. Skipping further validation...")
-                break
-
             balancing_state_affinity = Calculations.validate_current_affinity(proxlb_data, guest)
             balancing_state_anti_affinity = Calculations.validate_current_anti_affinity(proxlb_data, guest)
             logger.debug(f"Affinity for guest {guest} is {'valid' if balancing_state_affinity else 'NOT valid'}")
             logger.debug(f"Anti-affinity for guest {guest} is {'valid' if balancing_state_anti_affinity else 'NOT valid'}")
 
-            balancing_ok = balancing_state_affinity and balancing_state_anti_affinity
+            if not (balancing_state_affinity and balancing_state_anti_affinity):
+                balancing_ok = False
+                proxlb_data.meta.balancing.enforce_affinity = True
+                logger.debug("Rebalancing based on affinity/anti-affinity map is required. Skipping further validation...")
+                break
 
         if balancing_ok:
             logger.debug("Rebalancing based on affinity/anti-affinity map is not required.")
