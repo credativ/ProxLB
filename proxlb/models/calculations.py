@@ -496,15 +496,54 @@ class Calculations:
         logger.debug("Finished: relocate_guests.")
 
     @staticmethod
+    def get_anti_affinity_blocked_nodes(proxlb_data: ProxLbData, guest_name: str) -> set[str]:
+        """
+        Collects all nodes that a guest must not be placed on because they are
+        already taken by another member of one of its anti-affinity groups.
+
+        A node is blocked if another member of the same anti-affinity group is
+        placed on it. The target node of a guest is pre-filled with its current
+        node, so this covers guests that were already planned for a migration in
+        this run as well as guests that are not moved at all. Nodes that were
+        handed out to a group earlier in this run are blocked in addition, which
+        also covers guests that are excluded from any target node assignment.
+
+        Parameters:
+            proxlb_data (Dict[str, Any]): The data holding all content of all objects.
+            guest_name (str): The name of the guest to collect the blocked nodes for.
+
+        Returns:
+            set[str]: The names of all nodes that are blocked for the given guest.
+        """
+        blocked_nodes: set[str] = set()
+
+        for group_meta in proxlb_data.groups.anti_affinity.values():
+
+            if guest_name not in group_meta.guests:
+                continue
+
+            blocked_nodes.update(group_meta.used_nodes)
+
+            for member_name in group_meta.guests:
+
+                if member_name == guest_name or member_name not in proxlb_data.guests:
+                    continue
+
+                blocked_nodes.add(proxlb_data.guests[member_name].node_target)
+
+        return blocked_nodes
+
+    @staticmethod
     def val_anti_affinity(proxlb_data: ProxLbData, guest_name: str) -> None:
         """
         Validates and assigns nodes to guests based on anti-affinity rules.
 
-        This function iterates over all defined anti-affinity groups in the provided
-        `proxlb_data` and checks if the specified `guest_name` is included in any of
-        these groups. If the guest is included and has not been processed yet, it
-        attempts to assign an unused and non-maintenance node to the guest, ensuring
-        that the anti-affinity rules are respected.
+        This function validates the target node that was chosen by the resource
+        based balancing against the anti-affinity groups of the given guest. The
+        target node is kept as long as no other member of the same anti-affinity
+        group is placed on it. Otherwise, the most free node that is free of other
+        group members, not in a maintenance mode and able to host the guest is
+        used instead. If no such node is left, the guest is not relocated at all.
 
         Parameters:
             proxlb_data (Dict[str, Any]): The data holding all content of all objects.
@@ -514,38 +553,72 @@ class Calculations:
             None
         """
         logger.debug("Starting: val_anti_affinity.")
-        # Start by iterating over all defined anti-affinity groups
-        for group_name in proxlb_data.groups.anti_affinity.keys():
 
-            # Validate if the provided guest is included in the anti-affinity group
-            if guest_name in proxlb_data.groups.anti_affinity[group_name].guests and not proxlb_data.guests[guest_name].processed:
-                logger.debug(f"Anti-Affinity: Guest: {guest_name} is included in anti-affinity group: {group_name}.")
+        if proxlb_data.guests[guest_name].processed:
+            logger.debug(f"Anti-Affinity: Guest: {guest_name} was already processed. Skipping.")
+            logger.debug("Finished: val_anti_affinity.")
+            return
 
-                # Check if the group has only one member. If so skip new guest node assignment.
-                if proxlb_data.groups.anti_affinity[group_name].counter > 1:
-                    logger.debug("Anti-Affinity: Group has more than 1 member.")
-                    # Iterate over all available nodes
-                    for node_name in proxlb_data.nodes.keys():
+        # Ignored guests are never relocated and therefore only act as a constraint
+        # for the other members of their groups. Reserving a node for them would
+        # keep a valid target node away from the guests that are really moved.
+        if proxlb_data.guests[guest_name].ignore:
+            logger.debug(f"Anti-Affinity: Guest: {guest_name} is marked as ignored. Skipping node calculation for the guest.")
+            logger.debug("Finished: val_anti_affinity.")
+            return
 
-                        # Only select node if it was not used before and is not in a
-                        # maintenance mode. Afterwards, add it to the list of already
-                        # used nodes for the current anti-affinity group
-                        if node_name not in proxlb_data.groups.anti_affinity[group_name].used_nodes:
+        # Groups with a single member cannot be violated and need no node assignment
+        group_names = [
+            group_name
+            for group_name, group_meta in proxlb_data.groups.anti_affinity.items()
+            if guest_name in group_meta.guests and group_meta.counter > 1
+        ]
 
-                            if not proxlb_data.nodes[node_name].maintenance:
-                                # If the node has not been used yet, we assign this node to the guest
-                                proxlb_data.meta.balancing.balance_next_node = node_name
-                                proxlb_data.groups.anti_affinity[group_name].used_nodes.append(node_name)
-                                logger.debug(f"Node: {node_name} marked as used for anti-affinity group: {group_name} with guest {guest_name}")
-                                break
+        if not group_names:
+            logger.debug(f"Guest: {guest_name} is not included in any anti-affinity group with more than 1 member. Skipping.")
+            logger.debug("Finished: val_anti_affinity.")
+            return
 
-                        else:
-                            logger.critical(f"Node: {node_name} already got used for anti-affinity group:: {group_name}. (Tried for guest: {guest_name})")
-                else:
-                    logger.debug("Anti-Affinity: Group has less than 2 members. Skipping node calculation for the group.")
+        blocked_nodes = Calculations.get_anti_affinity_blocked_nodes(proxlb_data, guest_name)
+        logger.debug(f"Anti-Affinity: Guest: {guest_name} is included in anti-affinity group(s): {','.join(group_names)}. Blocked node(s): {','.join(sorted(blocked_nodes)) or 'none'}.")
 
-            else:
-                logger.debug(f"Guest: {guest_name} is not included in anti-affinity group: {group_name}. Skipping.")
+        node_target = proxlb_data.meta.balancing.balance_next_node
+
+        if node_target is not None and node_target not in blocked_nodes:
+            # The node that was chosen by the resource based balancing does not
+            # violate any anti-affinity group and is therefore kept.
+            logger.debug(f"Anti-Affinity: Keeping target node: {node_target} for guest: {guest_name}.")
+
+        else:
+            node_current = proxlb_data.guests[guest_name].node_current
+
+            # The current node of the guest is always able to host it, therefore
+            # it only needs to be validated for the remaining target nodes.
+            candidate_nodes = [
+                node_name
+                for node_name, node_meta in proxlb_data.nodes.items()
+                if node_name not in blocked_nodes
+                and not node_meta.maintenance
+                and (node_name == node_current or Calculations.validate_node_resources(proxlb_data, guest_name, node_name))
+            ]
+
+            if not candidate_nodes:
+                logger.warning(f"Skipping relocation of guest {guest_name} because no node is left that satisfies its anti-affinity group(s): {','.join(group_names)}.")
+                proxlb_data.meta.balancing.balance_next_node = None
+                logger.debug("Finished: val_anti_affinity.")
+                return
+
+            Calculations.get_most_free_node(proxlb_data, False, candidate_nodes)
+            node_target = proxlb_data.meta.balancing.balance_next_node
+            logger.debug(f"Anti-Affinity: Replaced target node by node: {node_target} for guest: {guest_name}.")
+
+        # Mark the node as used for all anti-affinity groups of the guest to keep
+        # the next member of the same group away from it
+        for group_name in group_names:
+
+            if node_target is not None and node_target not in proxlb_data.groups.anti_affinity[group_name].used_nodes:
+                proxlb_data.groups.anti_affinity[group_name].used_nodes.append(node_target)
+                logger.debug(f"Node: {node_target} marked as used for anti-affinity group: {group_name} with guest {guest_name}")
 
         logger.debug("Finished: val_anti_affinity.")
 
@@ -817,7 +890,7 @@ class Calculations:
         return True
 
     @staticmethod
-    def validate_node_resources(proxlb_data: ProxLbData, guest_name: str) -> bool:
+    def validate_node_resources(proxlb_data: ProxLbData, guest_name: str, node_target: Optional[str] = None) -> bool:
         """
         Validate that the target node has sufficient resources to host the specified guest.
 
@@ -830,12 +903,16 @@ class Calculations:
                 - "guests": Dictionary with guest resource requirements
                 - "meta": Dictionary with balancing information including target node
             guest_name (str): The name of the guest to validate resources for
+            node_target (str): The name of the node to validate the resources on. Defaults
+                               to the target node of the current balancing action.
         Returns:
             bool: True if the target node has sufficient resources, False otherwise
                   or if there is no target node defined.
         """
         logger.debug("Starting: validate_node_resources.")
-        node_target = proxlb_data.meta.balancing.balance_next_node
+
+        if node_target is None:
+            node_target = proxlb_data.meta.balancing.balance_next_node
 
         if node_target is None:
             logger.debug(f"No target node defined to validate node resources for guest {guest_name}.")
