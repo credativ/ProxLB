@@ -173,6 +173,18 @@ class Config(BaseModel):
         schedule: Schedule = Schedule()
 
     class Solver(BaseModel):
+        class Method(StrEnum):
+            Cpu = "cpu"
+            CpuPsi = "cpu_psi"
+            CpuSmart = "cpu_smart"
+            Disk = "disk"
+            GlobalSmart = "global_smart"
+            IoPsi = "io_psi"
+            IoSmart = "io_smart"
+            Memory = "memory"
+            MemoryPsi = "memory_psi"
+            MemorySmart = "memory_smart"
+
         class Mode(StrEnum):
             Active = "active"
             Shadow = "shadow"
@@ -181,6 +193,8 @@ class Config(BaseModel):
         enable: bool = False
         fallback_to_greedy: bool = True
         log_dir: str = "/var/log/proxlb/solver"
+        # Overrides balancing.method for the solver only; None uses balancing.method.
+        method: Optional[Method] = None
         mode: Mode = Mode.Shadow
         timeout_seconds: float = 30.0
         use_reservations: bool = True

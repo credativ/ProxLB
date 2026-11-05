@@ -8,8 +8,9 @@
 4. [Installation](#installation)
 5. [Configuration](#configuration)
     1. [Configuration Reference](#configuration-reference)
-    2. [Shadow Mode (default)](#shadow-mode-default)
-    3. [Active Mode](#active-mode)
+    2. [Solver Balancing Methods](#solver-balancing-methods)
+    3. [Shadow Mode (default)](#shadow-mode-default)
+    4. [Active Mode](#active-mode)
 6. [Logging and Reports](#logging-and-reports)
 7. [Interaction with ProxLB Constraints](#interaction-with-proxlb-constraints)
 8. [Operational Notes](#operational-notes)
@@ -89,7 +90,7 @@ concurrently.
 
 | Dependency | Version | Notes |
 |------------|---------|-------|
-| `proxlb-solver` | any | Pulls in `ortools` automatically |
+| `proxlb-solver` | any | Pulls in `ortools` automatically. `solver.method` requires a release newer than 0.1.1. |
 | `ortools` | ≥ 9.x | Included as a transitive dependency |
 | Python | ≥ 3.11 | Same as ProxLB 2.0 |
 
@@ -109,6 +110,7 @@ solver:
   use_reservations: True  # honour node_resource_reserve entries from the balancing section
   active_step_retries: 3  # max re-solve attempts on migration failure (active mode only)
   fallback_to_greedy: True  # fall back to greedy Balancing() when the solver cannot place VMs
+  # method: cpu_smart     # optional: solver-only balancing method, overrides balancing.method
 ```
 
 ### Configuration Reference
@@ -122,6 +124,28 @@ solver:
 | `use_reservations` | bool | `True` | When `True`, memory reservations defined in `balancing.node_resource_reserve` are applied as hard constraints in the solver (capacity is reduced by the configured GB). |
 | `active_step_retries` | int | `3` | Maximum number of re-solve attempts in active mode. After this many failures the remaining VMs are handed back to ProxLB's Balancing(). |
 | `fallback_to_greedy` | bool | `True` | In active mode, fall back to ProxLB's greedy `Balancing()` when the solver produces no plan at all (`INFEASIBLE`, or the solver run could not complete), or when active execution raises. Set to `False` to suppress the greedy pass in those two cases. Does **not** yet cover the in-flight remainder handback described under [Active mode](#active-mode). |
+| `method` | string | *unset* | Balancing method used by the solver. When unset, the solver uses `balancing.method`. Requires a `proxlb-solver` release newer than 0.1.1. See [Solver balancing methods](#solver-balancing-methods). |
+
+### Solver balancing methods
+
+ProxLB's greedy balancer only supports `memory`, `cpu` and `disk` in `balancing.method`. The solver
+supports additional methods, which can be selected via `solver.method`. This setting only affects the
+solver; ProxLB's greedy `Balancing()` — including the greedy fallback in active mode — keeps using
+`balancing.method`.
+
+> **Note:** `solver.method` only takes effect with a `proxlb-solver` release that supports it, i.e. a
+> release newer than 0.1.1. Older releases ignore the setting and keep optimising for
+> `balancing.method`. Check the method in the solver's `[solver] starting — … method=…` log line.
+
+| Method | Balances |
+|--------|----------|
+| `memory`, `cpu`, `disk` | Same as `balancing.method` |
+| `memory_psi`, `cpu_psi`, `io_psi` | Pressure stall information (PSI) of the respective resource |
+| `memory_smart`, `cpu_smart`, `io_smart` | Weighted combination of usage and PSI of the respective resource |
+| `global_smart` | Weighted combination of usage and PSI across memory, CPU and IO |
+
+> **Note:** The `*_smart` methods, and `global_smart` in particular, produce considerably larger
+> models and can take much longer to solve. Check `timeout_seconds` when using them.
 
 ### Shadow mode (default)
 

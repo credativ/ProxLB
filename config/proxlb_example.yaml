@@ -110,3 +110,6 @@ service:
 #   use_reservations: True          # Apply node_resource_reserve entries as hard constraints
 #   active_step_retries: 3          # Max re-solve attempts on migration failure (active mode only)
 #   fallback_to_greedy: True        # Fall back to greedy Balancing() when the solver cannot place VMs (active mode only)
+#   method: cpu_smart               # Optional: solver-only balancing method, overrides balancing.method for the solver
+#                                   # memory|cpu|disk|memory_psi|cpu_psi|io_psi|memory_smart|cpu_smart|io_smart|global_smart
+#                                   # Requires proxlb-solver > 0.1.1; older releases ignore it.
