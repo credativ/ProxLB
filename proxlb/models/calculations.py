@@ -461,8 +461,10 @@ class Calculations:
                     highest_node = max(proxlb_data.nodes.values(), key=lambda n: n.metric(method).used_percent)
 
                     if highest_node.name != source_node:
-                        logger.debug(f"Stopping relocation for guest {guest_name}: source node {source_node} is no longer the most loaded node.")
-                        break
+                        violates_anti_affinity = not Calculations.validate_current_anti_affinity(proxlb_data, guest_name)
+                        if not (proxlb_data.meta.balancing.enforce_affinity and violates_anti_affinity):
+                            logger.debug(f"Stopping relocation for guest {guest_name}: source node {source_node} is no longer the most loaded node.")
+                            break
 
                     if not Calculations.validate_node_resources(proxlb_data, guest_name):
                         if proxlb_data.meta.balancing.balance_next_node is None:
