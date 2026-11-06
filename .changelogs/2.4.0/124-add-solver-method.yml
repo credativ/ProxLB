@@ -1,0 +1,2 @@
+added:
+- Add `solver.method` to select solver-only balancing methods (`*_psi`, `*_smart`, `global_smart`) without changing `balancing.method` used by the greedy balancer. Requires a proxlb-solver release newer than 0.1.1; older releases ignore the setting. [#124]
