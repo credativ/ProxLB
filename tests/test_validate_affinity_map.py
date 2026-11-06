@@ -6,7 +6,7 @@ from proxlb.utils.proxlb_data import ProxLbData
 
 
 class TestValidateAffinityMap(unittest.TestCase):
-    def _build_cluster(self, guests_list):
+    def _build_cluster(self, guests_list: list[ProxLbData.Guest]) -> ProxLbData:
         nodes = {
             "pve01": create_node("pve01"),
             "pve02": create_node("pve02"),
@@ -53,7 +53,7 @@ class TestValidateAffinityMap(unittest.TestCase):
             ),
         )
 
-    def test_violation_on_last_guest_sets_enforce_affinity_true(self):
+    def test_violation_on_last_guest_sets_enforce_affinity_true(self) -> None:
         # When the violation only occurs on the last guest in proxlb_data.guests
         # (for example, the last guest is on a node in maintenance mode),
         # enforce_affinity must be set to True.
@@ -70,7 +70,7 @@ class TestValidateAffinityMap(unittest.TestCase):
             "enforce_affinity should be True when constraint is violated on the last guest"
         )
 
-    def test_no_violation_leaves_enforce_affinity_false(self):
+    def test_no_violation_leaves_enforce_affinity_false(self) -> None:
         vm1 = create_guest("vm1", "pve01", "pve01")
         vm1.anti_affinity_groups = ["plb_anti_affinity_db"]
         vm2 = create_guest("vm2", "pve02", "pve02")
