@@ -10,6 +10,7 @@ __copyright__ = "Copyright (C) 2025 Florian Paul Azim Hoberg (@gyptazy)"
 __license__ = "GPL-3.0"
 
 
+import re
 import time
 from typing import Dict, List, assert_never
 from proxlb.utils.logger import SystemdLogger
@@ -81,7 +82,10 @@ class Tags:
         else:
             assert_never(guest_type)
 
-        tags = api_tags.split(";") if isinstance(api_tags, str) else []
+        if isinstance(api_tags, str) and api_tags.strip():
+            tags = [t for t in re.split(r"[,;\s]+", api_tags) if t]
+        else:
+            tags = []
 
         logger.debug("Finished: get_tags_from_guests.")
         return tags
