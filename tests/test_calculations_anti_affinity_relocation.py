@@ -6,7 +6,7 @@ from proxlb.utils.proxlb_data import ProxLbData
 
 
 class TestAntiAffinityRelocation(unittest.TestCase):
-    def test_anti_affinity_avoids_co_located_node(self):
+    def test_anti_affinity_avoids_co_located_node(self) -> None:
         # 3 nodes: pve01, pve02, pve03
         node1 = create_node("pve01")
         node2 = create_node("pve02")
@@ -54,7 +54,7 @@ class TestAntiAffinityRelocation(unittest.TestCase):
             f"Expected target node to be pve02 or pve03, but got {data.meta.balancing.balance_next_node}"
         )
 
-    def test_relocate_anti_affinity_from_non_highest_node(self):
+    def test_relocate_anti_affinity_from_non_highest_node(self) -> None:
         # pve01 is highest load (70%), pve02 has vm1 and vm2 (anti-affinity conflict)
         node1 = create_node("pve01")
         node1.memory.used_percent = 70.0
@@ -113,7 +113,7 @@ class TestAntiAffinityRelocation(unittest.TestCase):
         moved = (data.guests["vm1"].node_target != "pve02") or (data.guests["vm2"].node_target != "pve02")
         self.assertTrue(moved, "At least one guest with anti-affinity violation should have been relocated")
 
-    def test_relocate_anti_affinity_two_node_cluster(self):
+    def test_relocate_anti_affinity_two_node_cluster(self) -> None:
         # 2-node cluster: pve01 is 70% load, pve02 has vm1 and vm2 (anti-affinity conflict, 30% load)
         # Even though pve02 is the least loaded node, one of the guests must be moved to pve01 to resolve violation
         node1 = create_node("pve01")

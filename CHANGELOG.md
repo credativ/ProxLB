@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-11-09
+
+### Added
+
+- Add `solver.method` to select solver-only balancing methods (`*_psi`, `*_smart`, `global_smart`) without changing `balancing.method` used by the greedy balancer. Requires a proxlb-solver release newer than 0.1.1; older releases ignore the setting (@dlucredativ). [#124]
+- Check that all cluster nodes still respond to `nodes/{node}/status` before dispatching each migration during balancing; restart ProxLB from scratch if a node has become unavailable (@gyptazy). [#134]
+
+### Fixed
+
+- Fix segmentation fault when PVE API is unreachable during runtime (@gyptazy). [#134]
+- Support comma, semicolon, and whitespace tag separators in `get_tags_from_guests` to align with Proxmox VE API format (@dguerri). [#136]
+- Fix `validate_affinity_map` loop bug where affinity/anti-affinity constraint violation on the last guest was ignored (@dguerri). [#137]
+- Allow relocating anti-affinity violating guests from non-peak nodes when `enforce_affinity` is active (@dguerri). [#138]
+- Keep the target node of the resource based balancing for guests in anti-affinity groups instead of always overwriting it with the first node of the cluster, which could place a guest next to a member of its own anti-affinity group (@PDreuw). [#139]
+- Take the nodes of all other members of an anti-affinity group into account when selecting a target node and fall back to the most free node that is free of them (@PDreuw). [#139]
+- Skip the relocation of a guest instead of assigning an invalid node when no node is left that satisfies its anti-affinity groups (@PDreuw). [#139]
+
+
 ## [2.3.0] - 2026-08-31
 
 ### Added
@@ -20,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Replace the (average, max) tuple returned by get_*_rrd_datasets() with a generic RrdDatasets container (@dlucredativ and @archandha).
+
 
 ## [2.2.0] - 2026-06-10
 
@@ -56,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dispatched but not all migrations had finished (@archandha). [#6]
 - Ensure failed migrations are properly detected and reported instead of being silently
   skipped during parallel execution (@archandha). [#6]
+
 
 ## [2.0.1] - 2026-05-04
 

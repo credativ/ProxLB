@@ -1,4 +1,18 @@
-proxlb (2.3.0) stable; urgency=medium
+proxlb (2.4.0) stable; urgency=medium
+
+  * Add solver.method to select solver-only balancing methods (*_psi, *_smart, global_smart) without changing balancing.method used by the greedy balancer. Requires a proxlb-solver release newer than 0.1.1; older releases ignore the setting. (Closes: #124)
+  * Check that all cluster nodes still respond to nodes/{node}/status before dispatching each migration during balancing; restart ProxLB from scratch if a node has become unavailable. (Closes: #134)
+  * Fix segmentation fault when PVE API is unreachable during runtime. (Closes: #134)
+  * Support comma, semicolon, and whitespace tag separators in get_tags_from_guests to align with Proxmox VE API format. (Closes: #136)
+  * Fix validate_affinity_map loop bug where affinity/anti-affinity constraint violation on the last guest was ignored. (Closes: #137)
+  * Allow relocating anti-affinity violating guests from non-peak nodes when enforce_affinity is active. (Closes: #138)
+  * Keep the target node of the resource based balancing for guests in anti-affinity groups instead of always overwriting it with the first node of the cluster. (Closes: #139)
+  * Take the nodes of all other members of an anti-affinity group into account when selecting a target node and fall back to the most free node that is free of them. (Closes: #139)
+  * Skip the relocation of a guest instead of assigning an invalid node when no node is left that satisfies its anti-affinity groups. (Closes: #139)
+
+ -- Florian Paul Azim Hoberg gyptazy <florian.hoberg@credativ.de>  Mon, 9 Nov 2026 08:12:31 +0200
+ 
+ proxlb (2.3.0) stable; urgency=medium
 
   * Add option to ignore guests by name via ignore_guests config option. (Closes: #116)
   * Add solver.fallback_to_greedy to opt out of greedy Balancing() when the CP-SAT solver cannot find a feasible plan in active mode. (Closes: #120)
