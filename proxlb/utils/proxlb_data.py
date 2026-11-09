@@ -20,6 +20,11 @@ class ProxLbData(BaseModel):
             balance_reason: str = 'resources'
             parallel_jobs: int = 5
             processed_guests_psi: list[str] = []
+            # Runtime-only: HA-managed resource sids (e.g. 'vm:100', 'ct:101'),
+            # fetched lazily once per balancing pass. None means "not fetched
+            # yet". Used to skip target storage remaps for HA-managed guests,
+            # since the HA stack does not forward the target storage parameter.
+            ha_managed_sids: Optional[list[str]] = None
 
         balancing: Balancing = Balancing()  # pyright: ignore [reportIncompatibleVariableOverride]
         cluster_non_pve9: bool
