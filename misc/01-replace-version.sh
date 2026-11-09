@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-VERSION="2.0.1"
+VERSION="2.4.0"
 
 # ProxLB
 sed -i "s/^__version__ = .*/__version__ = \"$VERSION\"/" "proxlb/utils/version.py"
