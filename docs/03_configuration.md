@@ -310,6 +310,17 @@ balancing:
   mode: used
 ```
 
+#### Ignore ZFS ARC Memory
+On nodes with ZFS, Proxmox VE reports the ZFS ARC as used memory, although ZFS shrinks the ARC again as soon as the memory is needed. A growing or shrinking ARC on a single node can therefore trigger migrations while the guests did not change at all. When `ignore_zfs_arc` is enabled, ProxLB subtracts the ARC size from the used memory of each node before balancing.
+
+```yaml
+balancing:
+  mode: used
+  ignore_zfs_arc: True
+```
+
+The ARC size is read from the rrd data of the node, which only contains it on PVE 9 and newer. On older nodes the option has no effect, so in mixed clusters these nodes still count their ARC as used memory. ProxLB uses the latest rrd entry holding a value, so the value can be about a minute old. Keep in mind that ZFS does not shrink the ARC below `zfs_arc_min`. The option is disabled by default.
+
 ### 10.2 Assigned Resources
 When **mode: `assigned`** is configured, ProxLB evaluates the *provisioned or allocated resources* of each guest (VM or CT) instead of their runtime usage.
 It uses data such as **CPU cores**, **memory limits**, and **disk allocations** defined in Proxmox to calculate how much of each node’s capacity is reserved.

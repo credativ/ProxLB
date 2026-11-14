@@ -1,0 +1,2 @@
+added:
+  - Add option `ignore_zfs_arc` to not count the ZFS ARC as used memory of a node (requires PVE >= 9). [#78]

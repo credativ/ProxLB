@@ -79,6 +79,12 @@ class Nodes:
                 memory_free = node["maxmem"] - node["mem"]
                 node_rrd = Nodes.get_node_rrd_datasets(proxmox_api, node["node"])
 
+                # The ZFS ARC is reported as used memory by PVE, but ZFS frees it when the memory is needed
+                if proxlb_config.balancing.ignore_zfs_arc:
+                    memory_zfs_arc = Nodes.get_node_zfs_arc_size(node_rrd, node["node"])
+                    memory_used = memory_used - memory_zfs_arc
+                    memory_free = memory_free + memory_zfs_arc
+
                 nodes[node["node"]] = ProxLbData.Node(
                     name=node["node"],
                     pve_version=Nodes.get_node_pve_version(proxmox_api, node["node"]),
@@ -277,6 +283,34 @@ class Nodes:
         logger.debug(f"RRD data (spike: {spikes}) for {rrd_key} from node: {node_name}: {rrd_data_value}")
         logger.debug("Finished: get_node_rrd_value.")
         return rrd_data_value
+
+    @staticmethod
+    def get_node_zfs_arc_size(rrd_datasets: 'NodeRrdDatasets', node_name: str) -> float:
+        """
+        Gets the ZFS ARC size of a node from the datasets already fetched via get_node_rrd_datasets(). This performs no API call itself.
+
+        The ARC size is only part of the node rrd data on PVE >= 9. The rrd data does not provide live values, so the latest entry holding a value is used.
+
+        Args:
+            rrd_datasets (NodeRrdDatasets): The RRD entries fetched for both consolidation functions.
+            node_name (str): The name of the node.
+
+        Returns:
+            float: The ZFS ARC size in bytes or 0.0 if the node does not provide it.
+        """
+        logger.debug("Starting: get_node_zfs_arc_size.")
+
+        # The newest rrd entries are not always populated yet
+        for entry in reversed(rrd_datasets.average):
+            zfs_arc_size = entry.get("arcsize")
+            if zfs_arc_size is not None:
+                logger.debug(f"ZFS ARC size from node: {node_name}: {zfs_arc_size}")
+                logger.debug("Finished: get_node_zfs_arc_size.")
+                return zfs_arc_size
+
+        logger.warning(f"No ZFS ARC size found in RRD data for node: {node_name} (requires PVE >= 9). Using 0.0 as value.")
+        logger.debug("Finished: get_node_zfs_arc_size.")
+        return 0.0
 
     @staticmethod
     def get_node_pve_version(proxmox_api: ProxmoxApi, node_name: str) -> str:

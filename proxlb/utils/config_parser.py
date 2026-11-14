@@ -109,6 +109,7 @@ class Config(BaseModel):
         enforce_affinity: bool = False
         enforce_pinning: bool = False
         ignore_guests: list[str] = []
+        ignore_zfs_arc: bool = False
         live: bool = True
         max_job_validation: int = 1800
         max_node_inflow: Optional[int] = 1
