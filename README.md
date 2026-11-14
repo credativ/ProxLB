@@ -340,6 +340,7 @@ The following options can be set in the configuration file `proxlb.yaml`:
 |  | method |  | memory | `Str` | The balancing method that should be used.  [values: `memory` (default), `cpu`, `disk`]|
 |  | mode |  | used | `Str` | The balancing mode that should be used. [values: `used` (default), `assigned`, `psi` (pressure)] |
 |  | balance_larger_guests_first |  | False | `Bool` | Option to prefer larger/smaller guests first |
+|  | ignore_zfs_arc |  | False | `Bool` | Do not count the ZFS ARC as used memory of a node. Requires PVE >= 9. |
 |  | node_resource_reserve |  | { default: { memory: 4 }, { node01: { memory: 6 }} } | `Dict` | A dict of pool names and their type for creating affinity/anti-affinity rules |
 |  | psi |  | { nodes: { memory: { pressure_full: 0.20, pressure_some: 0.20, pressure_spikes: 1.00 }}} | `Dict` | A dict of PSI based thresholds for nodes and guests |
 |  | pools |  | pools: { dev: { type: affinity }, de-nbg01-db: { type: anti-affinity }} | `Dict` | A dict of pool names and their type for creating affinity/anti-affinity rules |
@@ -398,6 +399,7 @@ balancing:
   method: memory
   mode: used
   balance_larger_guests_first: False
+  ignore_zfs_arc: False
   node_resource_reserve:
     defaults:
       memory: 4
