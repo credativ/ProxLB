@@ -102,7 +102,7 @@ class Config(BaseModel):
 
         class BackupGuard(BaseModel):
             enable: bool = False
-            lead_minutes: int = 15
+            lead_minutes: int = Field(default=15, ge=0)
 
         backup_guard: "Config.Balancing.BackupGuard" = Field(default_factory=lambda: Config.Balancing.BackupGuard())
         balance_larger_guests_first: bool = False
