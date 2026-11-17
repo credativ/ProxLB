@@ -146,6 +146,10 @@ class Balancing:
                 raise NodeUnavailableError(
                     "At least one cluster node became unavailable during balancing.")
 
+            # A backup job may have started since the backup state was fetched
+            if guest_will_move and backup_guard_cfg.enable:
+                backup_guard_jobs = Backups.get_backup_jobs(proxmox_api, proxlb_data.nodes, backup_guard_cfg.lead_minutes)
+
             job_id = Balancing._exec_rebalancing(proxmox_api, proxlb_data, guest_name, backup_guard_jobs)
             logger.debug(f"Balancing: job_id for {guest_name}: {job_id!r}, jobs_to_wait len: {len(jobs_to_wait)}")
             if job_id is not None:
