@@ -121,11 +121,6 @@ class Balancing:
         backup_guard_jobs: Dict[int, Backups.BackupJob] = {}
         backup_guard_cfg = proxlb_data.meta.balancing.backup_guard
 
-        if backup_guard_cfg.enable:
-            logger.info(f"Balancing: Backup guard is enabled with a lead time of {backup_guard_cfg.lead_minutes} minute(s). Fetching backup state.")
-            backup_guard_jobs = Backups.get_backup_jobs(proxmox_api, proxlb_data.nodes, backup_guard_cfg.lead_minutes)
-            logger.info(f"Balancing: Backup guard found {len(backup_guard_jobs)} VMID(s) with active or imminent backup jobs.")
-
         logger.debug("Starting: Balancing loop for guests.")
         for guest_name, guest_meta in proxlb_data.guests.items():
             while len(jobs_to_wait) >= parallel_job_limit:
@@ -146,7 +141,7 @@ class Balancing:
                 raise NodeUnavailableError(
                     "At least one cluster node became unavailable during balancing.")
 
-            # A backup job may have started since the backup state was fetched
+            # A backup job may have started since the guests were collected
             if guest_will_move and backup_guard_cfg.enable:
                 backup_guard_jobs = Backups.get_backup_jobs(proxmox_api, proxlb_data.nodes, backup_guard_cfg.lead_minutes)
 

@@ -13,6 +13,7 @@ __license__ = "GPL-3.0"
 import time
 from typing import TYPE_CHECKING, Dict, List, Optional
 from pydantic import BaseModel
+from proxlb.utils.config_parser import Config
 from proxlb.utils.logger import SystemdLogger
 from proxlb.utils.proxmox_api import ProxmoxApi
 from proxlb.utils.proxlb_data import ProxLbData
@@ -45,6 +46,9 @@ class Backups:
         is_backup_active_or_imminent(backup_jobs, vmid) -> bool:
             Returns True if the given VMID has a running or imminent backup,
             or if a catch-all backup job is active.
+
+        set_guest_ignore(proxmox_api, proxlb_config, nodes, guests) -> None:
+            Marks all guests with a running or imminent backup as ignored.
     """
 
     class BackupJob(BaseModel):
@@ -186,3 +190,42 @@ class Backups:
             bool: True if the guest is protected by backup guard.
         """
         return vmid in backup_jobs or _ALL_VMS_SENTINEL in backup_jobs
+
+    @staticmethod
+    def set_guest_ignore(proxmox_api: ProxmoxApi, proxlb_config: Config, nodes: Dict[str, ProxLbData.Node], guests: Dict[str, ProxLbData.Guest]) -> None:
+        """
+        Marks all guests with a running or imminent backup as ignored. ProxLB
+        plans no migration for ignored guests and the solver pins them to their
+        current node. Guests on a node in maintenance are left out.
+
+        Args:
+            proxmox_api (ProxmoxApi): The Proxmox API client instance.
+            proxlb_config (Config): The ProxLB configuration object.
+            nodes (Dict): The map of cluster nodes from ProxLbData.
+            guests (Dict): The map of guests from ProxLbData.
+        """
+        logger.debug("Starting: set_guest_ignore.")
+        backup_guard_cfg = proxlb_config.balancing.backup_guard
+
+        if backup_guard_cfg.enable:
+            backup_jobs = Backups.get_backup_jobs(proxmox_api, nodes, backup_guard_cfg.lead_minutes)
+            ignored_guests = 0
+
+            for guest_name, guest in guests.items():
+                if guest.ignore or not Backups.is_backup_active_or_imminent(backup_jobs, guest.id):
+                    continue
+
+                # A guest on a node in maintenance has to be moved away and the solver
+                # finds no plan when it must stay there. Such a guest is not ignored
+                # and only held back by the check before its migration.
+                if nodes[guest.node_current].maintenance:
+                    continue
+
+                logger.debug(f"Backups: Ignoring guest {guest_name} (VMID {guest.id}) due to an active or imminent backup job.")
+                guest.ignore = True
+                ignored_guests += 1
+
+            if ignored_guests:
+                logger.info(f"Backups: Backup guard ignores {ignored_guests} guest(s) with an active or imminent backup job.")
+
+        logger.debug("Finished: set_guest_ignore.")

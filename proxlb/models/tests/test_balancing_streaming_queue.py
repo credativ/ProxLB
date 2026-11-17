@@ -345,7 +345,7 @@ def test_balance_aborts_when_a_node_becomes_unavailable(
 def test_balance_skips_guests_when_a_backup_job_starts_during_the_run(
         mock_get_backup_jobs: MagicMock, mock_exec_vm: MagicMock, mock_get_status: MagicMock, mock_sleep: MagicMock,
 ) -> None:
-    """The backup state must be fetched again before each migration, not only once per run."""
+    """The backup state must be fetched again before each migration."""
     proxlb_data = _proxlb_data({
         "vm1": _guest(101, "node1", "node2"),
         "vm2": _guest(102, "node1", "node2"),
@@ -354,11 +354,11 @@ def test_balance_skips_guests_when_a_backup_job_starts_during_the_run(
     proxlb_data.meta.balancing.backup_guard.lead_minutes = 15
 
     running_job = Backups.BackupJob(running=True, active=True, vmid=-1, vm_name="")
-    mock_get_backup_jobs.side_effect = [{}, {}, {-1: running_job}]
+    mock_get_backup_jobs.side_effect = [{}, {-1: running_job}]
     mock_exec_vm.return_value = "job-vm1"
     mock_get_status.return_value = FINISHED
 
     Balancing.balance(MagicMock(), proxlb_data)
 
     mock_exec_vm.assert_called_once()
-    assert mock_get_backup_jobs.call_count == 3
+    assert mock_get_backup_jobs.call_count == 2

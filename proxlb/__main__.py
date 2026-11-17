@@ -33,6 +33,7 @@ from proxlb.models.guests import Guests
 from proxlb.models.groups import Groups
 from proxlb.models.calculations import Calculations
 from proxlb.models.balancing import Balancing
+from proxlb.models.backups import Backups
 from proxlb.models.pools import Pools
 from proxlb.models.ha_rules import HaRules
 from proxlb.models.ha_status import HaStatus
@@ -113,6 +114,7 @@ while True:
         pools = Pools.get_pools(proxmox_api)
         ha_rules = HaRules.get_ha_rules(proxmox_api, meta)
         guests = Guests.get_guests(proxmox_api, pools, ha_rules, nodes, proxlb_config)
+        Backups.set_guest_ignore(proxmox_api, proxlb_config, nodes, guests)
         groups = Groups.get_groups(guests, nodes)
 
         # Merge obtained objects from the Proxmox cluster for further usage

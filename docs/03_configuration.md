@@ -437,12 +437,12 @@ balancing:
     lead_minutes: 15
 ```
 
-Before each migration ProxLB checks:
+ProxLB checks the following when it collects the guests and again before each migration:
 
 - The vzdump tasks running on the nodes. A task for a single guest only blocks this guest. A task of a job that covers more than one guest blocks all migrations, because the task does not tell which guests are still to come.
 - The enabled backup jobs that start within the next `lead_minutes` minutes. A job with a list of guests only blocks these guests, all other jobs (all guests or a pool) block all migrations.
 
-Blocked guests are logged and skipped. They are evaluated again in the next run. Migrations that are already running are not aborted.
+Guests that are blocked when the run starts are handled like ignored guests. ProxLB plans no migration for them and the solver pins them to their node. Guests on a node in maintenance are the exception, they stay in the plan and are only held back before their migration. Guests that get blocked later during the run are logged and skipped. All of them are evaluated again in the next run. Migrations that are already running are not aborted.
 
 `lead_minutes` should cover the time your longest migration takes, otherwise a migration that was started right before can still reach into the backup. A backup that is started manually while a migration is running cannot be avoided. In that case only the guests that are being migrated at that moment are affected.
 

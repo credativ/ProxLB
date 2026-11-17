@@ -1,4 +1,5 @@
 import time
+from typing import Any
 from unittest.mock import MagicMock
 
 from proxlb.models.backups import Backups
@@ -45,3 +46,23 @@ def test_get_backup_jobs_ignores_disabled_and_later_jobs() -> None:
     ])
 
     assert Backups.get_backup_jobs(proxmox_api, {"node1": MagicMock()}, 15) == {}
+
+
+def test_set_guest_ignore_marks_guests_with_backup_as_ignored() -> None:
+    proxmox_api = _proxmox_api([{"type": "vzdump", "id": "101", "starttime": 1}, {"type": "vzdump", "id": "103", "starttime": 1}], [])
+    proxlb_config = MagicMock()
+    proxlb_config.balancing.backup_guard.enable = True
+    proxlb_config.balancing.backup_guard.lead_minutes = 15
+    nodes: dict[str, Any] = {"node1": MagicMock(maintenance=False), "node2": MagicMock(maintenance=True)}
+    guests: dict[str, Any] = {
+        "vm101": MagicMock(id=101, ignore=False, node_current="node1"),
+        "vm102": MagicMock(id=102, ignore=False, node_current="node1"),
+        "vm103": MagicMock(id=103, ignore=False, node_current="node2"),
+    }
+
+    Backups.set_guest_ignore(proxmox_api, proxlb_config, nodes, guests)
+
+    assert guests["vm101"].ignore is True
+    assert guests["vm102"].ignore is False
+    # Guests on a node in maintenance are not ignored, the solver finds no plan otherwise
+    assert guests["vm103"].ignore is False
