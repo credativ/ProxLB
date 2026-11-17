@@ -11,11 +11,15 @@ __license__ = "GPL-3.0"
 
 
 import time
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 from pydantic import BaseModel
 from proxlb.utils.logger import SystemdLogger
 from proxlb.utils.proxmox_api import ProxmoxApi
 from proxlb.utils.proxlb_data import ProxLbData
+
+if TYPE_CHECKING:
+    from proxmoxer_types.v9.core import ProxmoxAPI
+    TaskListEntry = ProxmoxAPI.Nodes.Node.Tasks._Get.TypedDict
 
 logger = SystemdLogger()
 
@@ -79,7 +83,7 @@ class Backups:
         for node_name in nodes:
             try:
                 time.sleep(0.1)
-                tasks = proxmox_api.nodes(node_name).tasks.get(source="active", typefilter="vzdump")
+                tasks: list['TaskListEntry'] = proxmox_api.nodes(node_name).tasks.get(source="active", typefilter="vzdump")
 
                 for task in tasks:
                     # The guest of a vzdump task is reported in the id field
