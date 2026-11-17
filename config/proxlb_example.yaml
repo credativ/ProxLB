@@ -50,6 +50,9 @@ balancing:
       memory: 4                       # Default: 4 GB memory reserved per node
     node01:                           # Specific node reservation override for node 'node01'
       memory: 6                       # Specific: 6 GB memory reserved for node 'node01'
+  backup_guard:                       # Optional: Pause migrations during active or imminent backup windows
+    enable: True                      # Set to True to activate backup guard
+    lead_minutes: 15                  # Also pause if an enabled backup job starts within the next N minutes
   # # PSI thresholds only apply when using mode 'psi'
   # psi:
   #   nodes:

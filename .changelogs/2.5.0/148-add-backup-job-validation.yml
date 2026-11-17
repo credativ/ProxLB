@@ -1,0 +1,2 @@
+added:
+  - Add validation for backup jobs to ensure that the source and destination nodes are compatible and meet the necessary requirements. [#148]

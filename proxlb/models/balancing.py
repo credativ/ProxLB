@@ -12,6 +12,7 @@ __license__ = "GPL-3.0"
 
 import proxmoxer
 import time
+from proxlb.models.backups import Backups
 from proxlb.utils.helper import Helper, NodeUnavailableError
 from proxlb.utils.logger import SystemdLogger
 from proxlb.utils.proxmox_api import ProxmoxApi
@@ -19,7 +20,7 @@ from proxlb.utils.config_parser import Config
 from proxlb.utils.proxlb_data import ProxLbData
 from pydantic import BaseModel
 from enum import Enum
-from typing import TYPE_CHECKING, Optional, assert_never
+from typing import TYPE_CHECKING, Dict, Optional, assert_never
 from requests.exceptions import ConnectionError
 
 if TYPE_CHECKING:
@@ -117,6 +118,13 @@ class Balancing:
         jobs_to_wait: list[Balancing.RebalancingJob] = []
         max_retries = proxlb_data.meta.balancing.max_job_validation
         error_occurred = False
+        backup_guard_jobs: Dict[int, Backups.BackupJob] = {}
+        backup_guard_cfg = proxlb_data.meta.balancing.backup_guard
+
+        if backup_guard_cfg.enable:
+            logger.info(f"Balancing: Backup guard is enabled with a lead time of {backup_guard_cfg.lead_minutes} minute(s). Fetching backup state.")
+            backup_guard_jobs = Backups.get_backup_jobs(proxmox_api, proxlb_data.nodes, backup_guard_cfg.lead_minutes)
+            logger.info(f"Balancing: Backup guard found {len(backup_guard_jobs)} VMID(s) with active or imminent backup jobs.")
 
         logger.debug("Starting: Balancing loop for guests.")
         for guest_name, guest_meta in proxlb_data.guests.items():
@@ -138,7 +146,7 @@ class Balancing:
                 raise NodeUnavailableError(
                     "At least one cluster node became unavailable during balancing.")
 
-            job_id = Balancing._exec_rebalancing(proxmox_api, proxlb_data, guest_name)
+            job_id = Balancing._exec_rebalancing(proxmox_api, proxlb_data, guest_name, backup_guard_jobs)
             logger.debug(f"Balancing: job_id for {guest_name}: {job_id!r}, jobs_to_wait len: {len(jobs_to_wait)}")
             if job_id is not None:
                 jobs_to_wait.append(Balancing.RebalancingJob(
@@ -165,7 +173,7 @@ class Balancing:
         return True
 
     @staticmethod
-    def _exec_rebalancing(proxmox_api: ProxmoxApi, proxlb_data: ProxLbData, guest_name: str) -> Optional[str]:
+    def _exec_rebalancing(proxmox_api: ProxmoxApi, proxlb_data: ProxLbData, guest_name: str, backup_guard_jobs: Optional[Dict[int, Backups.BackupJob]] = None) -> Optional[str]:
         """
         Dispatches a single guest to the appropriate migration method based on its type.
 
@@ -173,6 +181,9 @@ class Balancing:
             proxmox_api (ProxmoxApi): The Proxmox API client instance.
             proxlb_data (ProxLbData): ProxLB load balancing data.
             guest_name (str): The name of the guest to be migrated.
+            backup_guard_jobs (Optional[Dict]): Pre-fetched map of VMIDs with active or
+                imminent backup jobs. When provided, any guest whose VMID appears in this
+                map (or the map contains the all-VMs sentinel -1) is skipped.
 
         Returns:
             Optional[str]: The Proxmox job ID if a migration was started, None otherwise.
@@ -185,6 +196,12 @@ class Balancing:
 
         if guest_meta.node_current != guest_meta.node_target:
             if not guest_meta.ignore:
+
+                if backup_guard_jobs is not None and Backups.is_backup_active_or_imminent(backup_guard_jobs, guest_meta.id):
+                    logger.warning(f"Balancing: Skipping migration of guest {guest_name} (VMID {guest_meta.id}) due to an active or imminent backup job.")
+                    logger.debug("Finished: _exec_rebalancing.")
+                    return None
+
                 if guest_meta.type == GuestType.Vm:
                     if GuestType.Vm in proxlb_data.meta.balancing.balance_types:
                         logger.debug(f"Balancing: Balancing for guest {guest_name} of type VM started.")

@@ -341,6 +341,9 @@ The following options can be set in the configuration file `proxlb.yaml`:
 |  | mode |  | used | `Str` | The balancing mode that should be used. [values: `used` (default), `assigned`, `psi` (pressure)] |
 |  | balance_larger_guests_first |  | False | `Bool` | Option to prefer larger/smaller guests first |
 |  | ignore_zfs_arc |  | False | `Bool` | Do not count the ZFS ARC as used memory of a node. Requires PVE >= 9. |
+|  | `backup_guard` |  |  | `Dict` | Backup guard config block to pause migrations during active or imminent backup windows. |
+|  |  | enable | False | `Bool` | If backup guard should be activated. |
+|  |  | lead_minutes | 15 | `Int` | Also pause migrations if an enabled backup job starts within the next N minutes. |
 |  | node_resource_reserve |  | { default: { memory: 4 }, { node01: { memory: 6 }} } | `Dict` | A dict of pool names and their type for creating affinity/anti-affinity rules |
 |  | psi |  | { nodes: { memory: { pressure_full: 0.20, pressure_some: 0.20, pressure_spikes: 1.00 }}} | `Dict` | A dict of PSI based thresholds for nodes and guests |
 |  | pools |  | pools: { dev: { type: affinity }, de-nbg01-db: { type: anti-affinity }} | `Dict` | A dict of pool names and their type for creating affinity/anti-affinity rules |
@@ -405,6 +408,9 @@ balancing:
       memory: 4
     node01:
       memory: 6
+backup_guard:
+  enable: True
+  lead_minutes: 15
 # # PSI thresholds only apply when using mode 'psi'
 # # PSI based balancing is currently in beta and req. PVE >= 9
 # psi:
