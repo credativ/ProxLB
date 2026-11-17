@@ -25,6 +25,7 @@
         2. [Assigned Resources](#assigned-resources)
         3. [Pressure (PSI) based Resources](#pressure-psi-based-resources)
     11. [HA-Mode (ProxLB)](#ha-mode)
+    12. [Backup Guard](#12-backup-guard)
 
 ## Authentication / User Accounts / Permissions
 ### Authentication
@@ -425,3 +426,24 @@ Make sure to enable the HA mode on all instances to avoid parallel evaluations o
 service:
   enable_ha: true
 ```
+
+### 12. Backup Guard
+A backup job (vzdump) works through the guests of a node one after another and only locks the guest it is currently backing up. When ProxLB migrates a guest that the job has not reached yet, the backup of this guest fails and the whole job ends with errors. With the backup guard enabled, ProxLB does not migrate guests that are affected by a running or upcoming backup job.
+
+```yaml
+balancing:
+  backup_guard:
+    enable: True
+    lead_minutes: 15
+```
+
+Before each migration ProxLB checks:
+
+- The vzdump tasks running on the nodes. A task for a single guest only blocks this guest. A task of a job that covers more than one guest blocks all migrations, because the task does not tell which guests are still to come.
+- The enabled backup jobs that start within the next `lead_minutes` minutes. A job with a list of guests only blocks these guests, all other jobs (all guests or a pool) block all migrations.
+
+Blocked guests are logged and skipped. They are evaluated again in the next run. Migrations that are already running are not aborted.
+
+`lead_minutes` should cover the time your longest migration takes, otherwise a migration that was started right before can still reach into the backup. A backup that is started manually while a migration is running cannot be avoided. In that case only the guests that are being migrated at that moment are affected.
+
+Both checks only use the Proxmox API and need the `Sys.Audit` permission, which ProxLB already requires. If one of the queries fails, ProxLB logs a warning and continues with the backup state it could fetch. The option is disabled by default.

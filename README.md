@@ -408,9 +408,9 @@ balancing:
       memory: 4
     node01:
       memory: 6
-backup_guard:
-  enable: True
-  lead_minutes: 15
+  backup_guard:
+    enable: True
+    lead_minutes: 15
 # # PSI thresholds only apply when using mode 'psi'
 # # PSI based balancing is currently in beta and req. PVE >= 9
 # psi:
