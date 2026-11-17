@@ -19,8 +19,9 @@ from proxlb.utils.proxlb_data import ProxLbData
 
 logger = SystemdLogger()
 
-# Sentinel VMID used in the backup_jobs map when a scheduled job covers all VMs
-# (i.e. the job has an empty vmid field in the Proxmox API response).
+# Sentinel VMID used in the backup_jobs map when a backup job covers all VMs
+# (i.e. a scheduled job has an empty vmid field in the Proxmox API response)
+# or when a running vzdump task does not tell which guests it covers.
 _ALL_VMS_SENTINEL = -1
 
 
@@ -35,7 +36,7 @@ class Backups:
         get_backup_jobs(proxmox_api, nodes, lead_minutes) -> Dict[int, BackupJob]:
             Returns a map of VMID -> BackupJob for all running or imminent backups.
             A synthetic entry with VMID -1 is added when a scheduled job covers
-            all VMs (empty vmid field).
+            all VMs (empty vmid field) or a running job covers more than one VM.
 
         is_backup_active_or_imminent(backup_jobs, vmid) -> bool:
             Returns True if the given VMID has a running or imminent backup,
@@ -69,7 +70,7 @@ class Backups:
 
         Returns:
             Dict[int, BackupJob]: VMID-keyed map of backup jobs.
-            A key of -1 means a scheduled job covers all VMs.
+            A key of -1 means a job covers all VMs or more than one VM.
         """
         logger.debug("Starting: get_backup_jobs.")
         backup_jobs: Dict[int, Backups.BackupJob] = {}
@@ -81,9 +82,15 @@ class Backups:
                 tasks = proxmox_api.nodes(node_name).tasks.get(source="active", typefilter="vzdump")
 
                 for task in tasks:
-                    raw_vmid = task.get("vmid")
+                    # The guest of a vzdump task is reported in the id field
+                    raw_vmid = task.get("id")
 
-                    if raw_vmid is None:
+                    if not raw_vmid:
+                        # The id is empty for jobs covering more than one guest. Such a
+                        # task only locks the guest it currently backs up and does not
+                        # tell which guests are still to come.
+                        logger.debug(f"Backups: Found active vzdump task for multiple guests on {node_name}.")
+                        backup_jobs[_ALL_VMS_SENTINEL] = Backups.BackupJob(running=True, active=True, vmid=_ALL_VMS_SENTINEL, vm_name="", job_start_time=task.get("starttime"))
                         continue
 
                     try:
