@@ -16,6 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from proxlb.models.backups import Backups
 from proxlb.models.balancing import Balancing
 from proxlb.utils.config_parser import Config
 from proxlb.utils.helper import Helper, NodeUnavailableError
@@ -335,3 +336,29 @@ def test_balance_aborts_when_a_node_becomes_unavailable(
         Balancing.balance(MagicMock(), proxlb_data)
 
     mock_exec_vm.assert_not_called()
+
+
+@patch("proxlb.models.balancing.time.sleep")
+@patch.object(Balancing, "_get_rebalancing_job_status")
+@patch.object(Balancing, "_exec_rebalancing_vm")
+@patch.object(Backups, "get_backup_jobs")
+def test_balance_skips_guests_when_a_backup_job_starts_during_the_run(
+        mock_get_backup_jobs: MagicMock, mock_exec_vm: MagicMock, mock_get_status: MagicMock, mock_sleep: MagicMock,
+) -> None:
+    """The backup state must be fetched again before each migration."""
+    proxlb_data = _proxlb_data({
+        "vm1": _guest(101, "node1", "node2"),
+        "vm2": _guest(102, "node1", "node2"),
+    }, parallel=False)
+    proxlb_data.meta.balancing.backup_guard.enable = True
+    proxlb_data.meta.balancing.backup_guard.lead_minutes = 15
+
+    running_job = Backups.BackupJob(running=True, active=True, vmid=-1, vm_name="")
+    mock_get_backup_jobs.side_effect = [{}, {-1: running_job}]
+    mock_exec_vm.return_value = "job-vm1"
+    mock_get_status.return_value = FINISHED
+
+    Balancing.balance(MagicMock(), proxlb_data)
+
+    mock_exec_vm.assert_called_once()
+    assert mock_get_backup_jobs.call_count == 2

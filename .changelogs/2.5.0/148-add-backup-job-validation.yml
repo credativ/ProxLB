@@ -1,0 +1,2 @@
+added:
+  - Add backup guard to pause migrations while a backup job (vzdump) is running or about to start. [#148]
