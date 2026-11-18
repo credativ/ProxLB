@@ -21,6 +21,7 @@ from proxlb.utils.proxlb_data import ProxLbData
 if TYPE_CHECKING:
     from proxmoxer_types.v9.core import ProxmoxAPI
     TaskListEntry = ProxmoxAPI.Nodes.Node.Tasks._Get.TypedDict
+    BackupJobEntry = ProxmoxAPI.Cluster.Backup._Get.TypedDict
 
 logger = SystemdLogger()
 
@@ -120,7 +121,7 @@ class Backups:
         cutoff = now + lead_minutes * 60
 
         try:
-            jobs = proxmox_api.cluster.backup.get()
+            jobs: list['BackupJobEntry'] = proxmox_api.cluster.backup.get()
 
             for job in jobs:
 
