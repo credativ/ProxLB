@@ -200,11 +200,30 @@ class Config(BaseModel):
         timeout_seconds: float = 30.0
         use_reservations: bool = True
 
+    class PowerManagement(BaseModel):
+        """
+        Experimental power management (DPM): put eligible nodes into standby
+        (shutdown) when the cluster load is low and wake them (Wake-on-LAN via
+        the Proxmox API) when the load rises.
+        """
+        enable: bool = False
+        dry_run: bool = True
+        nodes: list[str] = []
+        min_online_nodes: int = Field(default=2, ge=1)
+        low_threshold: int = Field(default=40, ge=0, le=100)
+        high_threshold: int = Field(default=75, ge=0, le=100)
+        resources: list["Config.Balancing.Resource"] = Field(default_factory=lambda: [Config.Balancing.Resource.Memory, Config.Balancing.Resource.Cpu])
+        cooldown: int = Field(default=3600, ge=0)
+        drain_timeout: int = Field(default=3600, ge=0)
+        wake_wait: int = Field(default=600, ge=0)
+        state_file: str = "/var/lib/proxlb/power_management.json"
+
     proxmox_api: ProxmoxAPI
     proxmox_cluster: ProxmoxCluster = ProxmoxCluster()
     balancing: Balancing = Field(default_factory=Balancing)
     service: Service = Field(default_factory=Service)
     solver: Solver = Field(default_factory=Solver)
+    power_management: PowerManagement = Field(default_factory=PowerManagement)
 
 
 class ConfigParser:

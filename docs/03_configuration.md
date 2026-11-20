@@ -25,6 +25,7 @@
         2. [Assigned Resources](#assigned-resources)
         3. [Pressure (PSI) based Resources](#pressure-psi-based-resources)
     11. [HA-Mode (ProxLB)](#ha-mode)
+    12. [Power Management (experimental)](#power-management-experimental)
 
 ## Authentication / User Accounts / Permissions
 ### Authentication
@@ -424,4 +425,43 @@ Make sure to enable the HA mode on all instances to avoid parallel evaluations o
 ```yaml
 service:
   enable_ha: true
+```
+
+### 12. Power Management (experimental)
+ProxLB can put nodes into standby when the cluster load is low and wake them up again when the load rises (similar to VMware DRS DPM). This feature is **experimental**, disabled by default and runs in **dry-run** mode by default: it only logs what it would do until `dry_run: False` is set.
+
+How it works (one step per ProxLB run):
+1. **Drain:** When the projected load of the cluster *without* a node is below `low_threshold` for all configured `resources`, the least used eligible node is drained. It is set to maintenance for ProxLB, so the regular maintenance logic migrates its guests away.
+2. **Shutdown:** When a draining node has no running guests left, it is shut down via the Proxmox API (`POST /nodes/{node}/status command=shutdown`).
+3. **Wake:** When the cluster load reaches `high_threshold` for any configured resource, draining is cancelled and one node that ProxLB has shut down is woken up via the Proxmox API (`POST /nodes/{node}/wakeonlan`).
+
+Safety rules:
+* Only nodes listed in `nodes` are ever drained, shut down or woken up.
+* At least `min_online_nodes` **and** a quorum majority of all cluster nodes stay online.
+* Only one node is drained at a time, and `cooldown` seconds must pass between drains.
+* A drain is cancelled when guests are still running on the node after `drain_timeout` seconds (e.g. guests with local disks that cannot be migrated). Ignored guests are never moved, so a node with ignored guests is never shut down.
+* The node ProxLB itself runs on is never shut down.
+* Only nodes that ProxLB has shut down are woken up. After a wake, ProxLB waits `wake_wait` seconds before waking another node.
+* Offline nodes are not used for balancing; a run does not abort because of them.
+
+#### Requirements
+* Wake-on-LAN must be enabled in the BIOS/NIC of the eligible nodes and the MAC address must be set on each node: `pvenode config set --wakeonlan <MAC>` (run on that node).
+* The API user needs `Sys.PowerMgmt` on `/nodes/{node}`.
+* The state (which nodes are drained or shut down by ProxLB) is kept in `state_file`. When ProxLB runs in HA mode, place it on storage that all ProxLB instances share.
+* Check the HA settings of your guests: HA-managed guests are migrated by the maintenance logic like other guests.
+
+#### Configuration
+```yaml
+power_management:
+  enable: True
+  dry_run: True               # Only log decisions; set to False to really drain, shut down and wake nodes
+  nodes: ['virt04', 'virt05'] # Nodes that may be put into standby
+  min_online_nodes: 2         # Never fewer online nodes (the quorum majority is always kept as well)
+  resources: ['memory', 'cpu']
+  low_threshold: 40           # Drain a node when the cluster load without it stays below this value (%)
+  high_threshold: 75          # Wake a node when the cluster load reaches this value (%)
+  cooldown: 3600              # Seconds between drains
+  drain_timeout: 3600         # Cancel a drain when guests remain after this time (s)
+  wake_wait: 600              # Seconds to wait after a wake before waking another node
+  state_file: /var/lib/proxlb/power_management.json
 ```

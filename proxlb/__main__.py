@@ -34,6 +34,7 @@ from proxlb.models.groups import Groups
 from proxlb.models.calculations import Calculations
 from proxlb.models.balancing import Balancing
 from proxlb.models.pools import Pools
+from proxlb.models.power_management import PowerManagement
 from proxlb.models.ha_rules import HaRules
 from proxlb.models.ha_status import HaStatus
 from proxlb.utils.helper import Helper, NodeUnavailableError
@@ -125,6 +126,9 @@ while True:
             groups=groups,
         )
         Helper.log_node_metrics(proxlb_data)
+
+        # Experimental power management (opt-in): drain, shut down or wake nodes
+        PowerManagement.run(proxmox_api, proxlb_data, proxlb_config, cli_args.dry_run)
 
         # Validate usable features by PVE versions
         Features.validate_available_features(proxlb_data)
