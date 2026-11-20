@@ -111,6 +111,8 @@ class Config(BaseModel):
         ignore_guests: list[str] = []
         ignore_zfs_arc: bool = False
         live: bool = True
+        # Move ignored guests off nodes in maintenance (opt-in, see #130).
+        maintenance_overrides_ignore: bool = False
         max_job_validation: int = 1800
         max_node_inflow: Optional[int] = 1
         memory_threshold: Optional[int] = None

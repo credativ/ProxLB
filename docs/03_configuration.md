@@ -14,6 +14,7 @@
         5. [Pin VMs to Hypervisor Nodes](#pin-vms-to-hypervisor-nodes)
     2. [API Loadbalancing](#api-loadbalancing)
     3. [Ignore Host-Nodes or Guests](#ignore-host-nodes-or-guests)
+        1. [Ignored Guests on Nodes in Maintenance](#ignored-guests-on-nodes-in-maintenance)
     4. [IPv6 Support](#ipv6-support)
     5. [Logging / Log-Level](#logging--log-level)
     6. [Parallel Migrations](#parallel-migrations)
@@ -153,7 +154,7 @@ plb_ignore_dev
 
 As a result, ProxLB will not migrate this guest with the `plb_ignore_dev` tag to any other node.
 
-**Note:** Ignored guests are really ignored. Even by enforcing affinity rules this guest will be ignored.
+**Note:** Ignored guests are really ignored. Even by enforcing affinity rules this guest will be ignored. The only exception is a node in maintenance when `maintenance_overrides_ignore` is enabled (see [Ignored Guests on Nodes in Maintenance](#ignored-guests-on-nodes-in-maintenance)).
 
 ### Pin VMs to Specific Hypervisor Nodes
 <img align="left" src="https://cdn.gyptazy.com/images/proxlb-tag-node-pinning.jpg"/> Guests, such as VMs or CTs, can also be pinned to specific nodes in the cluster. This might be usefull when running applications with some special licensing requirements that are only fulfilled on certain nodes. It might also be interesting, when some physical hardware is attached to a node, that is not available in general within the cluster.
@@ -190,6 +191,18 @@ In managing a Proxmox environment, it's often necessary to exclude certain host 
 proxmox_cluster:
   ignore_nodes: ['node01', 'node02']
 ```
+
+### Ignored Guests on Nodes in Maintenance
+By default, an ignored guest (tag `plb_ignore*` or listed in `ignore_guests`) is never moved, not even when its node is set to maintenance via `maintenance_nodes`. The administrator has to move it by hand.
+
+With `maintenance_overrides_ignore` enabled, maintenance wins over ignore: an ignored guest that runs on a node in maintenance is moved off that node like any other guest. Its affinity and anti-affinity rules are respected, so a guest tagged `plb_anti_affinity_<group>` is not placed next to the other members of its group. Once the guest runs on a node that is not in maintenance, it is ignored again: ProxLB never moves it for balancing.
+
+```
+balancing:
+  maintenance_overrides_ignore: True
+```
+
+**Note:** Guests are often ignored because they cannot be migrated, e.g. with PCI passthrough or local devices. Only enable this option when all ignored guests can be migrated, otherwise the migration of such a guest fails when its node goes into maintenance.
 
 ### IPv6 Support
 Yes, ProxLB fully supports IPv6.

@@ -46,6 +46,42 @@ class Guests:
         """
 
     @staticmethod
+    def apply_maintenance_override(guests: Dict[str, ProxLbData.Guest], nodes: Dict[str, ProxLbData.Node],
+                                   proxlb_config: Config) -> list[str]:
+        """
+        Let maintenance win over ignore for this run, when enabled.
+
+        With ``balancing.maintenance_overrides_ignore`` enabled, an ignored guest
+        (``plb_ignore*`` tag or ``ignore_guests``) that runs on a node in
+        maintenance is handled like any other guest during this run: it is moved
+        off the maintenance node, respecting its affinity / anti-affinity groups.
+        It is ignored again as soon as it runs on a node that is not in
+        maintenance. Disabled by default, because guests are often ignored
+        exactly because they cannot be migrated (e.g. PCI passthrough).
+
+        Args:
+            guests (Dict[str, ProxLbData.Guest]): All guests, changed in place.
+            nodes (Dict[str, ProxLbData.Node]):   All nodes, incl. maintenance state.
+            proxlb_config (Config):               ProxLB configuration.
+
+        Returns:
+            list[str]: Names of the guests that are no longer ignored in this run.
+        """
+        logger.debug("Starting: apply_maintenance_override.")
+        overridden: list[str] = []
+        if proxlb_config.balancing.maintenance_overrides_ignore:
+            for guest_name, guest in guests.items():
+                node = nodes.get(guest.node_current)
+                if guest.ignore and node is not None and node.maintenance:
+                    guest.ignore = False
+                    overridden.append(guest_name)
+                    logger.info(
+                        f"Guest {guest_name} is ignored but runs on node {guest.node_current} which is in "
+                        "maintenance: moving it off the node (balancing.maintenance_overrides_ignore).")
+        logger.debug("Finished: apply_maintenance_override.")
+        return overridden
+
+    @staticmethod
     def get_guests(proxmox_api: ProxmoxApi, pools: Dict[str, ProxLbData.Pool], ha_rules: Dict[str, ProxLbData.HaRule], nodes: Dict[str, ProxLbData.Node], proxlb_config: Config) -> Dict[str, ProxLbData.Guest]:
         """
         Get metrics of all guests in a Proxmox cluster.
