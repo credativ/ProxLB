@@ -1,0 +1,2 @@
+added:
+  - Document node pools - pools with a `pin` list and without `type` restrict guests to nodes without affinity semantics - and add tests for them. [#133]

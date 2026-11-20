@@ -87,6 +87,10 @@ balancing:
         - virt66
         - virt77
       strict: False                   # Disable strict mode of node pinning for this pool
+    zone_vdi:                         # Pool name: zone_vdi - a pure node pool (no 'type')
+      pin:                            # Guests are balanced independently, but only on these nodes
+        - virt44
+        - virt55
 
 service:
   daemon: True

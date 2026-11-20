@@ -12,6 +12,7 @@
         3. [Affinity / Anti-Affinity Enforcing](#affinity--anti-affinity-enforcing)
         4. [Ignore VMs](#ignore-vms)
         5. [Pin VMs to Hypervisor Nodes](#pin-vms-to-hypervisor-nodes)
+            1. [Pin Guests by Pools (Node Pools)](#pin-guests-by-pools-node-pools)
     2. [API Loadbalancing](#api-loadbalancing)
     3. [Ignore Host-Nodes or Guests](#ignore-host-nodes-or-guests)
     4. [IPv6 Support](#ipv6-support)
@@ -170,6 +171,26 @@ As a result, ProxLB will pin the guest `dev-vm01` to the node `virt03`.
 You can also repeat this step multiple times for different node names to create a potential group of allowed hosts where a the guest may be served on. In this case, ProxLB takes the node with the lowest used resources according to the defined balancing values from this group.
 
 **Note:** The given node names from the tag are validated. This means, ProxLB validated if the given node name is really part of the cluster. In case of a wrongly defined or unavailable node name it continous to use the regular processes to make sure the guest keeps running.
+
+#### Pin Guests by Pools (Node Pools)
+Instead of tagging every guest with `plb_pin_<node>`, the allowed nodes can be defined once for all guests of a Proxmox pool. Define the pool in the `balancing` section with a `pin` list and **without** `type`. Such a pool only restricts where its guests may run: the guests are not kept together (affinity) and not spread apart (anti-affinity), but balanced independently within the allowed nodes, using the regular `method`, `mode` and `balanciness`.
+
+```
+balancing:
+  [...]
+  pools:
+    zone_VDI:                         # Proxmox pool with unrelated guests (e.g. licensing, attached hardware)
+      pin: ['proxve4', 'proxve5', 'proxve6']
+      strict: True                    # Optional, default True
+```
+
+| Option | Description |
+|---|---|
+| `pin` | Nodes the guests of the pool may run on. Unknown node names are logged and skipped. |
+| `strict` | `True` (default): only the nodes in `pin` are used. `False`: the nodes in `pin` are preferred, but the node with the most free resources in the whole cluster is also considered. |
+| `type` | Omit it (or set it to `null`) for a pure node pool. With `affinity` or `anti-affinity`, the pool additionally keeps its guests together or spreads them apart. |
+
+`pin` and `type` can be combined, e.g. `type: anti-affinity` with a `pin` list spreads the guests of the pool over the given nodes only.
 
 ### API Loadbalancing
 ProxLB supports API loadbalancing, where one or more host objects can be defined as a list. This ensures, that you can even operator ProxLB without further changes when one or more nodes are offline or in a maintenance. When defining multiple hosts, the first reachable one will be picked. You can speficy custom ports in the list. There are 4 ways of defining hosts with ports:
