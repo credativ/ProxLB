@@ -113,6 +113,7 @@ while True:
         pools = Pools.get_pools(proxmox_api)
         ha_rules = HaRules.get_ha_rules(proxmox_api, meta)
         guests = Guests.get_guests(proxmox_api, pools, ha_rules, nodes, proxlb_config)
+        Guests.apply_maintenance_override(guests, nodes, proxlb_config)
         groups = Groups.get_groups(guests, nodes)
 
         # Merge obtained objects from the Proxmox cluster for further usage

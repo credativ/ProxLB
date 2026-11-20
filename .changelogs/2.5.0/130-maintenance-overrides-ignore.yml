@@ -1,0 +1,2 @@
+added:
+  - Add the option `maintenance_overrides_ignore` to move ignored guests off nodes in maintenance, respecting their affinity and anti-affinity rules (greedy balancer and solver). [#130]
