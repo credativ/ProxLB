@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ProxLB GUI plugin - preview</title>
+<!-- Renders the real plugin code with sample data on top of ExtJS (GPL) and
+     small stand-ins for the Proxmox VE framework. Used for the screenshot in
+     docs/images. Regenerate with: bash make-screenshot.sh -->
+<link rel="stylesheet" href="extjs/build/classic/theme-crisp/resources/theme-crisp-all.css">
+<link rel="stylesheet" href="fa/css/font-awesome.min.css">
+<style>
+  body { font-family: Helvetica, Arial, sans-serif; }
+  .good { color: #21bf4b; } .critical { color: #ff6c59; }
+  .pve-header { background: #f5f5f5; border-bottom: 1px solid #c0c0c0; }
+  .pve-header-title { font-size: 15px; font-weight: 600; padding: 9px 12px; color: #333; }
+  .x-treelist-item-icon, .x-tree-icon-custom { color: #555; }
+</style>
+<script src="extjs/build/ext-all.js"></script>
+<script>
+// ---- minimal stand-ins for the Proxmox VE framework -------------------------
+window.gettext = (s) => s;
+Ext.state.Manager.setProvider(new Ext.state.Provider());
+Ext.state.Manager.set('GuiCap', { dc: { 'Sys.Audit': 1 } });
+
+const now = Math.floor(Date.now() / 1000);
+const status = {
+  v: 1, agent: '1.0.0', state: 'idle', dry_run: true, trigger: 'schedule',
+  started: now - 1500, finished: now - 1480, duration: 20,
+  method: 'memory', mode: 'used', balanciness: 5, balancing_enabled: true,
+  nodes: { pve1: [81.6, 34.2, 22.0, 0], pve2: [44.9, 18.7, 31.0, 0], pve3: [39.3, 12.1, 18.0, 0] },
+  moves: [
+    [104, 'gitlab-runner-01', 'vm', 'pve1', 'pve3'],
+    [112, 'nextcloud', 'vm', 'pve1', 'pve2'],
+    [131, 'grafana', 'ct', 'pve1', 'pve3'],
+  ],
+  moves_total: 3, guests: 27, ignored: 2, ok: true, error: null,
+  auto: true, next_run: now + 2100, hb: now - 20, ctid: 120,
+};
+const resources = [
+  { type: 'node', node: 'pve1', status: 'online', cpu: 0.352, maxcpu: 16, mem: 52.3e9, maxmem: 64e9, disk: 22e9, maxdisk: 100e9 },
+  { type: 'node', node: 'pve2', status: 'online', cpu: 0.187, maxcpu: 16, mem: 28.6e9, maxmem: 64e9, disk: 31e9, maxdisk: 100e9 },
+  { type: 'node', node: 'pve3', status: 'online', cpu: 0.124, maxcpu: 12, mem: 12.6e9, maxmem: 32e9, disk: 18e9, maxdisk: 100e9 },
+  { type: 'lxc', vmid: 120, node: 'pve2', name: 'proxlb', status: 'running', hastate: 'started', tags: 'proxlb;plb_ignore_vm;proxlb-active' },
+];
+// ?degraded : pve1 has failed, HA restarted its guests elsewhere, ProxLB pauses
+const degraded = location.search.indexOf('degraded') !== -1;
+if (degraded) {
+  Object.assign(resources[0], { status: 'offline', cpu: 0, mem: 0 });
+  Object.assign(resources[1], { cpu: 0.46, mem: 49.1e9 });
+  Object.assign(resources[2], { cpu: 0.31, mem: 25.2e9 });
+  Object.assign(status, {
+    dry_run: true, trigger: 'schedule', started: now - 140, finished: now - 125, auto: true,
+    paused: 'node(s) offline: pve1; HA is recovering 2 guest(s)',
+    nodes: { pve2: [76.4, 45.2, 31.0, 0], pve3: [78.8, 30.9, 18.0, 0] },
+    moves: [], moves_total: 0,
+  });
+  resources.push({ type: 'qemu', vmid: 104, node: 'pve3', status: 'running', hastate: 'recovery' });
+  resources.push({ type: 'qemu', vmid: 112, node: 'pve2', status: 'running', hastate: 'recovery' });
+}
+const ctTags = 'proxlb;plb_ignore_vm;proxlb-active';
+// ?norun : anchor VM exists, but the agent has not reported yet (empty Notes)
+const norun = location.search.indexOf('norun') !== -1;
+// ?external : ProxLB runs on another machine, status via an anchor VM
+if (location.search.indexOf('external') !== -1 || norun) {
+  const i = resources.findIndex((r) => r.vmid === 120);
+  resources[i] = { type: 'qemu', vmid: 9000, node: 'pve3', name: 'proxlb-anchor', status: 'stopped',
+    hastate: 'stopped', tags: ctTags };
+  Object.assign(status, { host: 'mgmt01.lan', guest_type: 'qemu', ctid: 9000 });
+}
+const guestsPerNode = location.search.indexOf('degraded') !== -1 ? { pve1: 0, pve2: 15, pve3: 11 } : { pve1: 12, pve2: 8, pve3: 6 };
+Object.keys(guestsPerNode).forEach((n) => {
+  for (let i = 0; i < guestsPerNode[n]; i++) {
+    resources.push({ type: 'qemu', vmid: 200 + i, node: n, status: 'running' });
+  }
+});
+
+window.Proxmox = { Utils: { API2Request: function(opts) {
+  setTimeout(() => {
+    if (opts.url === '/cluster/resources') {
+      opts.success({ result: { data: resources } });
+    } else if (/\/config$/.test(opts.url)) {
+      opts.success({ result: { data: {
+        tags: ctTags, digest: 'x',
+        description: norun ? '' : 'ProxLB\n<!--proxlb-status:' + JSON.stringify(status) + '-->',
+      } } });
+    }
+  }, 10);
+} } };
+
+window.PVE = { dc: {} };
+Ext.define('PVE.panel.Config', {
+  extend: 'Ext.panel.Panel',
+  layout: 'border',
+  border: false,
+  initComponent: function() {
+    const me = this;
+    const items = me.items;
+    const root = { expanded: true, children: [] };
+    let last = null;
+    items.forEach((it) => {
+      const node = { text: it.title, iconCls: it.iconCls, itemId: it.itemId, leaf: true };
+      if (it.groups && last) { last.leaf = false; last.expanded = true; (last.children = last.children || []).push(node); } else { root.children.push(node); last = node; }
+    });
+    const cards = items.map((it) => Ext.apply({}, it, { header: false, border: false }));
+    me.items = [
+      { region: 'north', xtype: 'component', height: 38, cls: 'pve-header',
+        html: '<div class="pve-header-title">Datacenter (homelab)</div>' },
+      { region: 'west', xtype: 'treepanel', width: 190, rootVisible: false, border: true,
+        store: Ext.create('Ext.data.TreeStore', { root: root }),
+        listeners: { afterrender: (t) => { const r = t.getStore().findNode('itemId', me.activeTab); if (r) { t.getSelectionModel().select(r); } },
+          select: (sm, rec) => { me.down('#cards').getLayout().setActiveItem(rec.get('itemId')); } } },
+      { region: 'center', itemId: 'cards', layout: 'card', border: false,
+        activeItem: me.activeTab, items: cards },
+    ];
+    me.callParent();
+  },
+});
+Ext.define('PVE.dc.Config', {
+  extend: 'PVE.panel.Config',
+  activeTab: 'proxlb',
+  initComponent: function() {
+    const ph = (t, i, id, extra) => Ext.apply({ xtype: 'panel', title: t, iconCls: i, itemId: id, html: '' }, extra);
+    this.items = [
+      ph('Summary', 'fa fa-book', 'summary'), ph('Notes', 'fa fa-sticky-note-o', 'notes'),
+      ph('Cluster', 'fa fa-server', 'cluster'), ph('Ceph', 'fa fa-ceph', 'ceph'),
+      ph('Options', 'fa fa-gear', 'options'), ph('Storage', 'fa fa-database', 'storage'),
+      ph('Backup', 'fa fa-floppy-o', 'backup'), ph('Replication', 'fa fa-retweet', 'replication'),
+      ph('Permissions', 'fa fa-unlock', 'permissions'),
+      ph('HA', 'fa fa-heartbeat', 'ha'), ph('Groups', 'fa fa-object-group', 'ha-groups', { groups: ['ha'] }),
+      ph('Fencing', 'fa fa-bolt', 'ha-fencing', { groups: ['ha'] }),
+      ph('ACME', 'fa fa-certificate', 'acme'), ph('Firewall', 'fa fa-shield', 'firewall'),
+      ph('Metric Server', 'fa fa-bar-chart', 'metric'), ph('Support', 'fa fa-comments-o', 'support'),
+    ];
+    this.callParent();
+  },
+});
+</script>
+<script src="../proxlb-gui.js"></script>
+<script>
+Ext.onReady(() => {
+  Ext.create('Ext.container.Viewport', { layout: 'fit', items: [Ext.create('PVE.dc.Config')] });
+  const view = Ext.ComponentQuery.query('pveDcProxLBView')[0];
+  view.fireEvent('activate', view);
+  setTimeout(() => { window.READY = true; }, 600);
+});
+</script>
+</head>
+<body></body>
+</html>

@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    remove|deconfigure)
+        if [ -f /usr/share/pve-manager/index.html.tpl ]; then
+            proxlb-gui --packaged --uninstall || true
+        fi
+        ;;
+esac
+
+exit 0

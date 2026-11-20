@@ -1,0 +1,18 @@
+[Unit]
+Description=ProxLB agent - schedules ProxLB runs and publishes status to the Proxmox GUI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=plb
+Group=plb
+Environment="REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/opt/proxlb/venv/bin/python /opt/proxlb/agent/proxlb-agent.py -c /etc/proxlb/agent.yaml
+Restart=always
+RestartSec=30
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

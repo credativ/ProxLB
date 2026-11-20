@@ -1,0 +1,127 @@
+name: "Build package: proxlb-pve .deb"
+
+# proxlb-pve = ProxLB LXC installer (proxlb-lxc) + Proxmox web-interface plugin
+# for Proxmox VE hosts. Built on every push and pull request, tested on
+# Debian 12 and 13, and published:
+#   - every tag v*        -> the .deb is attached to the release of that tag,
+#                            also as proxlb-pve_latest_all.deb (stable download URL)
+#   - every push to main  -> pre-release "proxlb-pve-nightly", only if the
+#                            repository variable PROXLB_PVE_NIGHTLY is "true"
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build proxlb-pve .deb
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lintian shellcheck
+
+      - name: Check packaging scripts
+        run: |
+          shellcheck -S warning contrib/proxmox/packaging/*.sh contrib/proxmox/packaging/proxlb-lxc.wrapper \
+            contrib/proxmox/packaging/debian/postinst contrib/proxmox/packaging/debian/prerm
+
+      - name: Build package
+        id: build
+        run: |
+          deb=$(bash contrib/proxmox/packaging/build-deb.sh --out dist | tail -1)
+          echo "deb=$deb" >> "$GITHUB_OUTPUT"
+          echo "version=$(dpkg-deb -f "$deb" Version)" >> "$GITHUB_OUTPUT"
+          dpkg-deb -I "$deb"
+          dpkg-deb -c "$deb" | awk '{print $6}' | grep -v '/src/proxlb/'
+
+      - name: Lintian
+        run: lintian --fail-on error --suppress-tags no-manual-page "${{ steps.build.outputs.deb }}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: proxlb-pve-deb
+          path: dist/
+
+  test:
+    name: Install test on Debian ${{ matrix.debian }}
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        debian: [bookworm, trixie]   # Proxmox VE 8 / Proxmox VE 9
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: proxlb-pve-deb
+          path: dist/
+      - name: Install, trigger, upgrade and remove in debian:${{ matrix.debian }}
+        run: |
+          docker run --rm -v "$PWD:/src:ro" -v "$PWD/dist:/dist:ro" debian:${{ matrix.debian }} \
+            bash -c 'bash /src/contrib/proxmox/packaging/test-deb.sh /dist/proxlb-pve_*_all.deb'
+
+  publish:
+    name: Publish release
+    needs: [build, test]
+    if: >-
+      github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') ||
+      (github.ref == 'refs/heads/main' && vars.PROXLB_PVE_NIGHTLY == 'true'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      VERSION: ${{ needs.build.outputs.version }}
+      TAG: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'proxlb-pve-nightly' }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: proxlb-pve-deb
+          path: dist/
+
+      - name: Write release notes
+        run: |
+          # stable name next to the versioned file: .../releases/latest/download/proxlb-pve_latest_all.deb
+          cp "dist/proxlb-pve_${VERSION}_all.deb" dist/proxlb-pve_latest_all.deb
+          (cd dist && sha256sum proxlb-pve_latest_all.deb > proxlb-pve_latest_all.deb.sha256)
+          FILE=proxlb-pve_latest_all.deb
+          cat > notes.md <<EOF
+          **proxlb-pve ${VERSION}**: ProxLB LXC installer + Proxmox VE web-interface plugin (Datacenter → ProxLB).
+
+          Install on **every** Proxmox VE node whose web interface you use:
+          \`\`\`bash
+          wget https://github.com/${GH_REPO}/releases/download/${TAG}/${FILE}
+          apt install ./${FILE}
+          \`\`\`
+          Then, on one node, create the ProxLB container: \`proxlb-lxc --help\`, for example \`proxlb-lxc --ip 192.168.1.50/24 --gw 192.168.1.1\`.
+
+          Built from ${GITHUB_SHA::7}. Tested on Debian bookworm and trixie (Proxmox VE 8 / 9 base).
+          EOF
+          cat notes.md
+
+      - name: Release for tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes-file notes.md --verify-tag
+          gh release upload "$TAG" dist/* --clobber
+
+      - name: Nightly pre-release from main
+        if: github.ref == 'refs/heads/main'
+        run: |
+          gh release delete "$TAG" --cleanup-tag --yes >/dev/null 2>&1 || true
+          gh release create "$TAG" --prerelease --target "$GITHUB_SHA" \
+            --title "proxlb-pve nightly (${VERSION})" --notes-file notes.md dist/*

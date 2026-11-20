@@ -1,0 +1,5 @@
+Added:
+  - Add contrib/proxmox - run ProxLB in its own LXC container (proxlb-lxc) with a least-privilege API token per container, Proxmox HA for the container (shared storage or ZFS replication) and real balancing paused while the cluster is degraded.
+  - Add a ProxLB tab to the Proxmox VE web interface (Datacenter -> ProxLB) showing node usage, the balance spread and planned or performed migrations, with buttons for a dry-run preview, a rebalance and automatic balancing. It talks to ProxLB only through the Proxmox API (container Notes and tags) - no extra port, proxy or certificate.
+  - Connect ProxLB running on another machine to the tab (proxlb-external with an anchor VM, install-agent.sh, --ct/--ssh/--create-ct for an automatic setup) and a self-check (proxlb-ctl check).
+  - Add the proxlb-pve Debian package for Proxmox VE hosts (installers, bundled ProxLB source, web-interface plugin re-applied by a dpkg trigger after pve-manager updates), built, lintian-checked and install-tested on Debian bookworm/trixie by GitHub Actions and attached to every release.

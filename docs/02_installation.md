@@ -10,6 +10,7 @@
   - [RedHat Package](#redhat-package)
   - [Container Images / Docker](#container-images--docker)
     - [Overview of Images](#overview-of-images)
+  - [Proxmox LXC + Web Interface Plugin](#proxmox-lxc--web-interface-plugin)
   - [Source](#source)
     - [Traditional System](#traditional-system)
     - [Container Image](#container-image)
@@ -106,6 +107,25 @@ docker run -it --rm -v $(pwd)/proxlb.yaml:/etc/proxlb/proxlb.yaml proxlb
 ```
 
 *Note: ProxLB container images are officially only available at ghcr.io/credativ/proxlb or docker.io/credativ/proxlb*
+
+### Proxmox LXC + Web Interface Plugin
+ProxLB can run in its own LXC container on the cluster, with a **ProxLB** tab in the Proxmox web interface (*Datacenter → ProxLB*). The tab shows node usage, the balance spread and planned or performed migrations, and has buttons for a dry-run preview, a rebalance and automatic balancing. Run this as root on one Proxmox VE node:
+
+```bash
+# on every node: the proxlb-pve package (GUI plugin + proxlb-lxc installer)
+wget https://github.com/credativ/ProxLB/releases/latest/download/proxlb-pve_latest_all.deb
+apt install ./proxlb-pve_latest_all.deb
+# on one node: create the ProxLB container
+proxlb-lxc                                           # see --help for IP, storage, schedule, HA, ...
+```
+
+Without the package: `git clone https://github.com/credativ/ProxLB.git && bash ProxLB/contrib/proxmox/proxlb-lxc.sh`.
+
+Step-by-step guide to add the plugin and connect it to ProxLB (also an existing ProxLB container): [GUI-PLUGIN.md](../contrib/proxmox/GUI-PLUGIN.md).
+
+![ProxLB tab in the Proxmox web interface](images/proxlb-gui.png)
+
+Scheduled runs only preview (dry-run) until you switch on automatic balancing in the GUI. The container is made highly available with Proxmox HA (shared storage, or local ZFS with replication), so ProxLB keeps working when a node fails, and real balancing pauses while the cluster is degraded. See [contrib/proxmox/README.md](../contrib/proxmox/README.md) for details.
 
 ### Source
 ProxLB can also easily be used from the provided sources - for traditional systems but also as a Docker/Podman container image.
