@@ -1,0 +1,2 @@
+added:
+  - Add optional `balancing.method_weights` to balance by a weighted combination of memory, cpu and disk (combined method). [#13]

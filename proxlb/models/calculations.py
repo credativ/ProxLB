@@ -173,6 +173,43 @@ class Calculations:
         return proxlb_data
 
     @staticmethod
+    def node_load(proxlb_data: ProxLbData, node: ProxLbData.Node, mode: Optional[Config.Balancing.Mode] = None) -> float:
+        """
+        Return the load value of a node that is used to compare nodes.
+
+        Without `balancing.method_weights` this is the value of the single
+        configured `balancing.method` in the given mode (identical to the
+        previous behaviour). With `balancing.method_weights` it is the weighted
+        average of the percentages of all weighted resources (combined method).
+
+        Args:
+            proxlb_data (ProxLbData): The data holding all content of all objects.
+            node (ProxLbData.Node): The node to evaluate.
+            mode (Optional[Config.Balancing.Mode]): The mode to evaluate, defaults to `balancing.mode`.
+        Returns:
+            float: The load value of the node in percent.
+        """
+        if mode is None:
+            mode = proxlb_data.meta.balancing.mode
+
+        weights = proxlb_data.meta.balancing.active_method_weights()
+        if weights is None or mode == BalancingMode.Psi:
+            weights = {proxlb_data.meta.balancing.method: 1.0}
+
+        value = 0.0
+        for resource, weight in weights.items():
+            metric = node.metric(resource)
+            if mode == BalancingMode.Assigned:
+                value += weight * metric.assigned_percent
+            elif mode == BalancingMode.Used:
+                value += weight * metric.used_percent
+            elif mode == BalancingMode.Psi:
+                value += weight * metric.pressure_full_spikes_percent
+            else:
+                assert_never(mode)
+        return value
+
+    @staticmethod
     def get_balanciness(proxlb_data: ProxLbData) -> Optional[ProxLbData]:
         """
         Get the blanaciness for further actions where the highest and lowest
@@ -192,40 +229,34 @@ class Calculations:
             method = proxlb_data.meta.balancing.method
             mode = proxlb_data.meta.balancing.mode
             balanciness = proxlb_data.meta.balancing.balanciness
+            method_label = str(method)
 
-            if mode == BalancingMode.Assigned:
-                method_value = [node_meta.metric(method).assigned_percent for node_meta in proxlb_data.nodes.values()]
+            if mode in (BalancingMode.Assigned, BalancingMode.Used):
+                method_value = [Calculations.node_load(proxlb_data, node_meta, mode) for node_meta in proxlb_data.nodes.values()]
+                weights = proxlb_data.meta.balancing.active_method_weights()
+                threshold_methods = list(weights) if weights else [method]
 
-                if threshold := proxlb_data.meta.balancing.threshold(method):
-                    highest_usage_node = max(proxlb_data.nodes.values(), key=lambda x: x.metric(method).assigned_percent)
-                    highest_node_value = highest_usage_node.metric(method).assigned_percent
+                for threshold_method in threshold_methods:
+                    threshold = proxlb_data.meta.balancing.threshold(threshold_method)
+                    if not threshold:
+                        logger.debug(f"No {threshold_method} threshold defined for balancing. Skipping threshold check.")
+                        continue
+
+                    if mode == BalancingMode.Assigned:
+                        highest_usage_node = max(proxlb_data.nodes.values(), key=lambda x: x.metric(threshold_method).assigned_percent)
+                        highest_node_value = highest_usage_node.metric(threshold_method).assigned_percent
+                    else:
+                        highest_usage_node = max(proxlb_data.nodes.values(), key=lambda x: x.metric(threshold_method).used_percent)
+                        highest_node_value = highest_usage_node.metric(threshold_method).used_percent
 
                     if highest_node_value >= threshold:
-                        logger.debug(f"Guest balancing is required. Highest {method} usage node {highest_usage_node.name} is above the defined threshold of {threshold}% with a value of {highest_node_value}%.")
+                        logger.debug(f"Guest balancing is required. Highest {threshold_method} usage node {highest_usage_node.name} is above the defined threshold of {threshold}% with a value of {highest_node_value}%.")
                         proxlb_data.meta.balancing.balance = True
                     else:
-                        logger.debug(f"Guest balancing is ok. Highest {method} usage node {highest_usage_node.name} is below the defined threshold of {threshold}% with a value of {highest_node_value}%.")
-                        proxlb_data.meta.balancing.balance = False
+                        logger.debug(f"Guest balancing is ok. Highest {threshold_method} usage node {highest_usage_node.name} is below the defined threshold of {threshold}% with a value of {highest_node_value}%.")
 
-                else:
-                    logger.debug(f"No {method} threshold defined for balancing. Skipping threshold check.")
-
-            elif mode == BalancingMode.Used:
-                method_value = [node_meta.metric(method).used_percent for node_meta in proxlb_data.nodes.values()]
-
-                if threshold := proxlb_data.meta.balancing.threshold(method):
-                    highest_usage_node = max(proxlb_data.nodes.values(), key=lambda x: x.metric(method).used_percent)
-                    highest_node_value = highest_usage_node.metric(method).used_percent
-
-                    if highest_node_value >= threshold:
-                        logger.debug(f"Guest balancing is required. Highest {method} usage node {highest_usage_node.name} is above the defined threshold of {threshold}% with a value of {highest_node_value}%.")
-                        proxlb_data.meta.balancing.balance = True
-                    else:
-                        logger.debug(f"Guest balancing is ok. Highest {method} usage node {highest_usage_node.name} is below the defined threshold of {threshold}% with a value of {highest_node_value}%.")
-                        proxlb_data.meta.balancing.balance = False
-
-                else:
-                    logger.debug(f"No {method} threshold defined for balancing. Skipping threshold check.")
+                if weights:
+                    method_label = "combined (" + ", ".join(f"{resource}={weight:.2f}" for resource, weight in weights.items()) + ")"
 
             elif mode == BalancingMode.Psi:
                 method_value = [node_meta.metric(method).pressure_full_spikes_percent for node_meta in proxlb_data.nodes.values()]
@@ -255,9 +286,9 @@ class Calculations:
 
             if method_value_highest - method_value_lowest > balanciness:
                 proxlb_data.meta.balancing.balance = True
-                logger.debug(f"Guest balancing is required. Highest value: {method_value_highest}, lowest value: {method_value_lowest} balanced by {method} and {mode}.")
+                logger.debug(f"Guest balancing is required. Highest value: {method_value_highest}, lowest value: {method_value_lowest} balanced by {method_label} and {mode}.")
             else:
-                logger.debug(f"Guest balancing is ok. Highest value: {method_value_highest}, lowest value: {method_value_lowest} balanced by {method} and {mode}.")
+                logger.debug(f"Guest balancing is ok. Highest value: {method_value_highest}, lowest value: {method_value_lowest} balanced by {method_label} and {mode}.")
 
         else:
             logger.warning("No guests for balancing found.")
@@ -310,26 +341,10 @@ class Calculations:
         method = proxlb_data.meta.balancing.method
         mode = proxlb_data.meta.balancing.mode
 
-        if mode == BalancingMode.Assigned:
-            logger.debug(f"Get best node for balancing by assigned {method} resources.")
-            lowest_usage_node = min(
-                filtered_nodes, key=lambda x: x.metric(method).assigned_percent
-            )
-
-        elif mode == BalancingMode.Used:
-            logger.debug(f"Get best node for balancing by used {method} resources.")
-            lowest_usage_node = min(
-                filtered_nodes, key=lambda x: x.metric(method).used_percent
-            )
-
-        elif mode == BalancingMode.Psi:
-            logger.debug(f"Get best node for balancing by pressure of {method} resources.")
-            lowest_usage_node = min(
-                filtered_nodes, key=lambda x: x.metric(method).pressure_full_spikes_percent
-            )
-
-        else:
-            assert_never(mode)
+        logger.debug(f"Get best node for balancing by {mode} {method} resources (weights: {proxlb_data.meta.balancing.active_method_weights()}).")
+        lowest_usage_node = min(
+            filtered_nodes, key=lambda x: Calculations.node_load(proxlb_data, x, mode)
+        )
 
         if not lowest_usage_node:
             logger.critical("No suitable node found for balancing.")
@@ -458,7 +473,7 @@ class Calculations:
                     source_node = proxlb_data.guests[guest_name].node_current
                     method = proxlb_data.meta.balancing.method
                     mode = proxlb_data.meta.balancing.mode
-                    highest_node = max(proxlb_data.nodes.values(), key=lambda n: n.metric(method).used_percent)
+                    highest_node = max(proxlb_data.nodes.values(), key=lambda n: Calculations.node_load(proxlb_data, n, BalancingMode.Used))
 
                     if highest_node.name != source_node:
                         violates_anti_affinity = not Calculations.validate_current_anti_affinity(proxlb_data, guest_name)
