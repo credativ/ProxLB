@@ -1,0 +1,6 @@
+#!/bin/sh
+# proxlb-external - connect ProxLB running on another machine to the
+# ProxLB tab in the Proxmox web interface (anchor VM + API token + bundle).
+# See: proxlb-external --help, /usr/share/doc/proxlb-pve/GUI-PLUGIN.md
+export PROXLB_EXTERNAL_CMD=proxlb-external
+exec bash /usr/share/proxlb-pve/src/contrib/proxmox/proxlb-external.sh "$@"

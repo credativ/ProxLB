@@ -1,0 +1,5 @@
+#!/bin/sh
+# proxlb-lxc - create, upgrade or make HA the ProxLB LXC container.
+# See: proxlb-lxc --help, /usr/share/doc/proxlb-pve/README.md
+export PROXLB_LXC_CMD=proxlb-lxc
+exec bash /usr/share/proxlb-pve/src/contrib/proxmox/proxlb-lxc.sh "$@"

@@ -1,0 +1,2 @@
+# pve-manager updates replace index.html.tpl: re-apply the plugin line
+interest-noawait /usr/share/pve-manager/index.html.tpl

@@ -1,0 +1,23 @@
+Package: proxlb-pve
+Version: @VERSION@
+Architecture: all
+Maintainer: credativ GmbH <support@credativ.de>
+Installed-Size: @SIZE@
+Depends: perl, libjson-perl, pve-manager
+Section: admin
+Priority: optional
+Homepage: https://github.com/credativ/ProxLB
+Description: ProxLB for Proxmox VE - LXC installer and web-interface plugin
+ Deploys ProxLB, the load balancer and resource scheduler for Proxmox VE
+ clusters, in its own highly available LXC container (proxlb-lxc), and adds
+ a "Datacenter -> ProxLB" tab to the Proxmox VE web interface showing node
+ usage, the balance spread and planned or performed migrations, with
+ buttons for a dry-run preview, a rebalance and automatic balancing.
+ .
+ For ProxLB running on another machine, proxlb-external connects it to
+ the same tab through a small anchor VM.
+ .
+ The ProxLB source is bundled, so the container can be created without git
+ on the host. A dpkg trigger re-applies the web-interface plugin after
+ pve-manager updates. Install this package on every node whose web
+ interface you use.

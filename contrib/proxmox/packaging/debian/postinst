@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    configure)
+        if [ -f /usr/share/pve-manager/index.html.tpl ]; then
+            proxlb-gui --packaged || echo "proxlb-pve: could not enable the web-interface plugin, run: proxlb-gui" >&2
+        else
+            echo "proxlb-pve: pve-manager web interface not found, plugin not enabled" >&2
+        fi
+        echo "proxlb-pve: create the ProxLB container with: proxlb-lxc --help"
+        ;;
+    triggered)
+        proxlb-gui --packaged --reapply || true
+        ;;
+esac
+
+exit 0

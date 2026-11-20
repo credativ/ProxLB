@@ -1,0 +1,29 @@
+#!/bin/sh
+# proxlb-ctl - small helper inside the ProxLB container
+set -e
+STATE=/var/lib/proxlb
+case "$1" in
+  dryrun|preview) touch "$STATE/trigger-dryrun"; chown plb:plb "$STATE/trigger-dryrun" 2>/dev/null || true
+                  echo "Dry-run queued. Follow with: proxlb-ctl logs" ;;
+  run|rebalance)  touch "$STATE/trigger-run"; chown plb:plb "$STATE/trigger-run" 2>/dev/null || true
+                  echo "Balancing run queued. Follow with: proxlb-ctl logs" ;;
+  check|doctor)   PY=$(sed -n 's/^python: *//p' /etc/proxlb/agent.yaml)
+                  AGENT=/opt/proxlb/agent/proxlb-agent.py
+                  echo "== proxlb-agent service: $(systemctl is-active proxlb-agent 2>/dev/null || true)"
+                  # test with the CA bundle the agent really uses (from its systemd unit)
+                  CA=$(systemctl show proxlb-agent -p Environment --value 2>/dev/null | tr ' ' '\n' | sed -n 's/^REQUESTS_CA_BUNDLE=//p')
+                  [ -n "$CA" ] && export REQUESTS_CA_BUNDLE="$CA"
+                  exec "${PY:-python3}" "$AGENT" --check -c /etc/proxlb/agent.yaml ;;
+  status)         cat "$STATE/status.json" 2>/dev/null || echo "no run yet" ;;
+  last)           cat "$STATE/last-run.log" 2>/dev/null || echo "no run yet" ;;
+  logs)           exec journalctl -u proxlb-agent -f ;;
+  config)         exec "${EDITOR:-nano}" /etc/proxlb/proxlb.yaml ;;
+  restart)        exec systemctl restart proxlb-agent ;;
+  update)         [ -d /opt/proxlb/src/.git ] || { echo "Installed from a local copy: run 'proxlb-lxc.sh --upgrade <ctid>' on the PVE host instead."; exit 1; }
+                  cd /opt/proxlb/src && git pull --ff-only \
+                    && /opt/proxlb/venv/bin/pip install --no-cache-dir --upgrade /opt/proxlb/src \
+                    && install -m 0755 contrib/proxmox/agent/proxlb-agent.py /opt/proxlb/agent/proxlb-agent.py \
+                    && install -D -m 0644 contrib/proxmox/agent/tls-relax/sitecustomize.py /opt/proxlb/agent/tls-relax/sitecustomize.py \
+                    && systemctl restart proxlb-agent && echo "ProxLB updated." ;;
+  *) echo "usage: proxlb-ctl {check|dryrun|run|status|last|logs|config|restart|update}"; exit 1 ;;
+esac
