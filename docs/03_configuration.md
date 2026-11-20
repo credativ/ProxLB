@@ -24,6 +24,7 @@
         1. [Used Resources](#used-resources)
         2. [Assigned Resources](#assigned-resources)
         3. [Pressure (PSI) based Resources](#pressure-psi-based-resources)
+        4. [Combined Methods (Weighted)](#combined-methods-weighted)
     11. [HA-Mode (ProxLB)](#ha-mode)
 
 ## Authentication / User Accounts / Permissions
@@ -400,6 +401,33 @@ balancing:
         pressure_full: 0.20
         pressure_some: 0.20
         pressure_spikes: 1.00
+```
+
+### 10.4 Combined Methods (Weighted)
+By default ProxLB compares nodes by a single resource (`balancing.method`). With the optional `balancing.method_weights` several resources can be combined, so that e.g. a node with free memory but a saturated CPU is no longer picked as the best target.
+
+The load of a node is the weighted average of the percentages of the weighted resources in the configured `mode` (`used` or `assigned`):
+
+```
+load = (w_memory * memory% + w_cpu * cpu% + w_disk * disk%) / (w_memory + w_cpu + w_disk)
+```
+
+This value is used for the `balanciness` spread, for choosing the target node and for deciding which node is the most loaded one. Resources with a weight of `0` (or not listed) are ignored. If a threshold (`memory_threshold`, `cpu_threshold`, `disk_threshold`) is defined for a weighted resource, it is checked for that resource on its own: exceeding any of them triggers balancing.
+
+Notes:
+* Without `method_weights` the behaviour is exactly the same as before; only `balancing.method` is used.
+* `method_weights` is not used in the `psi` mode; the PSI mode keeps using `balancing.method`.
+* Resource checks of a target node (does the guest fit?) are not changed by this option.
+* Users of the external solver can use the solver methods (e.g. `global_smart`) instead.
+
+#### Example Configuration
+```yaml
+balancing:
+  method: memory          # used when method_weights is not set
+  mode: used
+  method_weights:
+    memory: 2
+    cpu: 1
 ```
 
 ### 11. HA-Mode

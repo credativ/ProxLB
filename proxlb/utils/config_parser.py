@@ -116,6 +116,7 @@ class Config(BaseModel):
         memory_threshold: Optional[int] = None
         disk_threshold: Optional[int] = None
         method: "Config.Balancing.Resource" = Resource.Memory
+        method_weights: Optional[dict["Config.Balancing.Resource", float]] = None
         mode: Mode = Mode.Used
         node_resource_reserve: Optional[dict[str, dict["Config.Balancing.Resource", int]]] = None
         parallel: bool = False
@@ -134,6 +135,20 @@ class Config(BaseModel):
                 return self.memory_threshold
             else:
                 assert_never(method)
+
+        def active_method_weights(self) -> Optional[dict["Config.Balancing.Resource", float]]:
+            """
+            Return the normalised weights of a combined balancing method, or None
+            when a single `method` is used. Weights <= 0 are dropped; when no
+            positive weight is left, the single `method` is used.
+            """
+            if not self.method_weights:
+                return None
+            weights = {resource: float(weight) for resource, weight in self.method_weights.items() if weight > 0}
+            total = sum(weights.values())
+            if total <= 0:
+                return None
+            return {resource: weight / total for resource, weight in weights.items()}
 
     class Service(BaseModel):
 
