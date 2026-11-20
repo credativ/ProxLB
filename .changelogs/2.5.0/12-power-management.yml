@@ -1,0 +1,2 @@
+added:
+  - Add experimental, opt-in power management (`power_management`) to drain and shut down nodes on low load and wake them via Wake-on-LAN on high load (dry-run by default). [#12]

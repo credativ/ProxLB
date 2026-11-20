@@ -100,6 +100,16 @@ service:
     format: hours
   log_level: INFO
 
+# Optional, experimental: power management (standby of nodes on low load, Wake-on-LAN on high load)
+# See docs/03_configuration.md "Power Management (experimental)".
+# power_management:
+#   enable: False
+#   dry_run: True                   # Only log decisions
+#   nodes: ['virt04', 'virt05']     # Nodes that may be put into standby
+#   min_online_nodes: 2
+#   low_threshold: 40
+#   high_threshold: 75
+
 # Optional: CP-SAT solver integration (requires proxlb-solver package)
 # Install with: pip install proxlb-solver
 # See docs/04_solver.md for full documentation.
